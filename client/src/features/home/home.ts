@@ -1,6 +1,5 @@
-import { Component, input, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, signal } from '@angular/core';
 import { Register } from '../account/register/register';
-import { User } from '../../types/user';
 
 @Component({
   selector: 'app-home',
@@ -10,8 +9,17 @@ import { User } from '../../types/user';
 })
 export class Home {
   protected registerMode = signal(false);
+  private cdr = inject(ChangeDetectorRef);
 
   showRegister(value: boolean) {
-    this.registerMode.set(value);
+    if (!document.startViewTransition) {
+      this.registerMode.set(value);
+      return;
+    }
+
+    document.startViewTransition(() => {
+      this.registerMode.set(value);
+      this.cdr.detectChanges();
+    });
   }
 }

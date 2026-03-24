@@ -1,14 +1,16 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable, signal } from '@angular/core';
 import { LoginCreds, RegisterCreds, User } from '../../types/user';
-import { tap } from 'rxjs';
+import { catchError, tap, throwError } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AccountService {
   private http = inject(HttpClient);
-  currentUser = signal<User | null>(null);
+
+  // โหลด State ทันทีตอนเริ่มต้น ป้องกันปัญหาค่าว่างเมื่อรีเฟรชหน้าเว็บ
+  currentUser = signal<User | null>(this.getUserFromStorage());
 
   baseUrl = 'https://localhost:7091/api/';
 
@@ -19,6 +21,7 @@ export class AccountService {
           this.setCurrentUser(user);
         }
       }),
+      catchError(this.handleError),
     );
   }
 
@@ -31,6 +34,7 @@ export class AccountService {
   }
 
   setCurrentUser(user: User) {
+    // หมายเหตุ: หากมีการใช้ JWT Token ควรให้ Backend ส่งเป็น HttpOnly Cookie แทนการเก็บตรงๆ
     localStorage.setItem('user', JSON.stringify(user));
     this.currentUser.set(user);
   }
@@ -40,15 +44,17 @@ export class AccountService {
     this.currentUser.set(null);
   }
 
-  /*
-  private loadUserFromStorage(): User | null {
-    const userString = localStorage.getItem('user');
-    if (!userString) return null;
+  private getUserFromStorage(): User | null {
+    const userJson = localStorage.getItem('user');
+    if (!userJson) return null;
     try {
-      return JSON.parse(userString) as User;
+      return JSON.parse(userJson);
     } catch {
       return null;
     }
   }
-  */
+
+  private handleError(error: HttpErrorResponse) {
+    return throwError(() => error);
+  }
 }
