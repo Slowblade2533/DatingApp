@@ -1,7 +1,7 @@
-<div class="toast toast-bottom toast-end z-50">
+<div class="toast toast-bottom toast-end z-50 items-end">
   @for (toast of toastService.toasts(); track toast.id) {
     <div
-      class="alert {{ toast.type }} shadow-lg toast-item"
+      class="alert {{ toast.type }} shadow-lg toast-item w-fit"
       animate.enter="toast-enter"
       animate.leave="toast-leave"
     >

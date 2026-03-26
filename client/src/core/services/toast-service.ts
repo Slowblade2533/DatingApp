@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-export interface Toast {
+export interface ToastMessage {
   id: number;
   message: string;
   type: 'alert-success' | 'alert-error' | 'alert-warning' | 'alert-info';
@@ -10,16 +10,17 @@ export interface Toast {
   providedIn: 'root',
 })
 export class ToastService {
-  toasts = signal<Toast[]>([]);
-  private idCounter = 0;
+  // ใช้ Signal เพื่อให้ UI อัปเดตทันทีแบบ Zoneless
+  toasts = signal<ToastMessage[]>([]);
+  private nextId = 1;
 
-  private show(message: string, type: Toast['type'], duration = 5000) {
-    const id = this.idCounter++;
+  private show(message: string, type: ToastMessage['type'], duration = 5000) {
+    const id = this.nextId++;
 
-    // อัปเดต Signal เพิ่ม Toast ตัวใหม่เข้าไป
+    // ใช้ update เพื่อแทรกข้อมูลเข้าไปใน Signal Array
     this.toasts.update((current) => [...current, { id, message, type }]);
 
-    // ตั้งเวลาลบ
+    // ตั้งเวลาให้ Toast ลบตัวเองออก
     setTimeout(() => this.remove(id), duration);
   }
 
