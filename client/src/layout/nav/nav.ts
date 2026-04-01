@@ -1,11 +1,11 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AccountService } from '../../core/services/account-service';
+import { AccountService } from '../../core/services/account.service';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { finalize } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ToastService } from '../../core/services/toast-service';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-nav',
@@ -50,9 +50,7 @@ export class Nav {
           this.router.navigateByUrl('/members');
           this.toast.success('Logged in successfully');
         },
-        error: (error: HttpErrorResponse) => {
-          this.toast.error(error.message);
-        },
+        error: (error: HttpErrorResponse) => {},
       });
   }
 

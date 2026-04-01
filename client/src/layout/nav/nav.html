@@ -38,7 +38,11 @@
             class="flex items-center text-white text-xl gap-3 cursor-pointer bg-transparent border-none p-0"
             aria-haspopup="menu"
           >
-            <img src="/user.png" alt="user avatar" class="w-8 h-8 rounded-full" />
+            <img
+              [src]="user?.imageUrl || '/user.png'"
+              alt="user avatar"
+              class="w-10 h-10 rounded-full"
+            />
             <span>{{ user.displayName }}</span>
           </button>
           <ul
@@ -60,6 +64,8 @@
             placeholder="Email"
             aria-label="Email address"
             [disabled]="isLoading()"
+            required
+            email
           />
           <input
             [(ngModel)]="password"
@@ -69,8 +75,13 @@
             placeholder="Password"
             aria-label="Password"
             [disabled]="isLoading()"
+            required
           />
-          <button type="submit" class="btn btn-primary w-15" [disabled]="isLoading()">
+          <button
+            type="submit"
+            class="btn btn-primary w-15"
+            [disabled]="isLoading() || loginForm.invalid"
+          >
             @if (isLoading()) {
               <span class="loading loading-spinner loading-xs"></span>
             } @else {

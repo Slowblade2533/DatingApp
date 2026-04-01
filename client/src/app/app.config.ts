@@ -9,8 +9,11 @@ import { provideRouter, withRouterConfig, withViewTransitions } from '@angular/r
 
 import { routes } from './app.routes';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { InitService } from '../core/services/init-service';
-import { errorInterceptor } from '../core/interceptors/error-interceptor';
+
+import { errorInterceptor } from '../core/interceptors/error.interceptor';
+import { authInterceptor } from '../core/interceptors/auth.interceptor';
+import { networkResilienceInterceptor } from '../core/interceptors/network-resilience.interceptor';
+import { AccountService } from '../core/services/account.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -21,10 +24,12 @@ export const appConfig: ApplicationConfig = {
       withViewTransitions(),
       withRouterConfig({ onSameUrlNavigation: 'reload' }),
     ),
-    provideHttpClient(withInterceptors([errorInterceptor])),
+    provideHttpClient(
+      withInterceptors([networkResilienceInterceptor, authInterceptor, errorInterceptor]),
+    ),
     provideAppInitializer(() => {
-      const initService = inject(InitService);
-      return initService.init();
+      const accountService = inject(AccountService);
+      return Promise.resolve();
     }),
   ],
 };

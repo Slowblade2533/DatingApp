@@ -10,6 +10,7 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>();
 builder.Services.AddDbContext<AppDbContext>(opt =>
 {
     opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
@@ -64,4 +65,7 @@ catch (Exception ex)
     logger.LogError(ex, "An error occured during seeding");
 }
 */
+
+app.MapHealthChecks("/api/health");
+
 app.Run();
