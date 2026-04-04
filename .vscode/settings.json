@@ -1,3 +1,6 @@
 {
-  "vscode-angular-html.colorCustomizations": true
+  "vscode-angular-html.colorCustomizations": true,
+  "csharp-dev-tools.roslyn.projectOrSolutionFiles": [
+    "d:\\DatingApp\\DatingApp.slnx"
+  ]
 }

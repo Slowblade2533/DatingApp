@@ -96,13 +96,6 @@ export class NetworkStatusService implements OnDestroy {
       this._clearOfflineWarning();
       this._recoveredAt.set(new Date());
       this.toast.success('เชื่อมต่อ Server สำเร็จแล้ว ✅', 5000);
-
-      // บังคับ Refresh เฉพาะเมื่อจำเป็น
-      setTimeout(() => {
-        if (!document.querySelector('.ng-dirty')) {
-          window.location.reload();
-        }
-      }, 1500);
     }
   }
 

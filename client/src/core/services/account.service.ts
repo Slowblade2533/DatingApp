@@ -43,15 +43,31 @@ export class AccountService {
     if (!raw) return null;
     try {
       const user = JSON.parse(raw);
-      // รวม Logic Validation จาก InitService
+
       if (user && typeof user.token === 'string') {
+        // ✅ ตรวจสอบวันหมดอายุของ Token เบื้องต้น
+        if (this.isTokenExpired(user.token)) {
+          this.handleLocalLogout(); // ล้างทิ้งทันทีถ้าหมดอายุแล้ว
+          return null;
+        }
         return user;
       }
-      localStorage.removeItem('user');
       return null;
     } catch {
-      localStorage.removeItem('user');
       return null;
+    }
+  }
+
+  private isTokenExpired(token: string): boolean {
+    try {
+      // ✅ JWT ใช้ Base64URL ไม่ใช่ Base64 ปกติ — ต้องแปลง - → + และ _ → / ก่อน decode
+      const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(atob(base64));
+      if (!payload.exp) return false;
+      const expiryTime = payload.exp * 1000; // แปลงเป็นมิลลิวินาที
+      return Date.now() >= expiryTime; // ถ้าเวลาปัจจุบันมากกว่าเวลาหมดอายุ = true
+    } catch {
+      return true; // ถ้า decode ไม่ได้ถือว่าเสีย/หมดอายุ
     }
   }
 

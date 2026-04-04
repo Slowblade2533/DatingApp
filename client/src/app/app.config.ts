@@ -5,7 +5,12 @@ import {
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
 } from '@angular/core';
-import { provideRouter, withRouterConfig, withViewTransitions } from '@angular/router';
+import {
+  provideRouter,
+  withComponentInputBinding,
+  withRouterConfig,
+  withViewTransitions,
+} from '@angular/router';
 
 import { routes } from './app.routes';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
@@ -23,13 +28,13 @@ export const appConfig: ApplicationConfig = {
       routes,
       withViewTransitions(),
       withRouterConfig({ onSameUrlNavigation: 'reload' }),
+      withComponentInputBinding(),
     ),
     provideHttpClient(
       withInterceptors([networkResilienceInterceptor, authInterceptor, errorInterceptor]),
     ),
     provideAppInitializer(() => {
-      const accountService = inject(AccountService);
-      return Promise.resolve();
+      inject(AccountService);
     }),
   ],
 };

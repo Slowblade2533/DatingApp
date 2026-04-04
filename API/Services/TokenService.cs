@@ -32,6 +32,8 @@ public class TokenService(IConfiguration config) : ITokenService
         {
             Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddHours(1),
+            Issuer = "DatingApp-API",
+            Audience = "DatingApp-Client",
             SigningCredentials = creds
         };
 

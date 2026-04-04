@@ -13,12 +13,18 @@ export class ToastService {
   // ใช้ Signal เพื่อให้ UI อัปเดตทันทีแบบ Zoneless
   toasts = signal<ToastMessage[]>([]);
   private nextId = 1;
+  private readonly MAX_TOASTS = 5; //จำกัดจำนวน toast สูงสุด: 5
 
   private show(message: string, type: ToastMessage['type'], duration = 5000): number {
     const id = this.nextId++;
 
-    // ใช้ update เพื่อแทรกข้อมูลเข้าไปใน Signal Array
-    this.toasts.update((current) => [...current, { id, message, type }]);
+    // ใช้ update เพื่อแทรกข้อมูลเข้าไปใน Signal Array (จำกัดจำนวนสูงสุด)
+    this.toasts.update((current) => {
+      const updated = [...current, { id, message, type }];
+      return updated.length > this.MAX_TOASTS
+        ? updated.slice(updated.length - this.MAX_TOASTS)
+        : updated;
+    });
 
     // ✅ duration <= 0 = persistent (ไม่หายเอง ต้อง dismiss เอง)
     if (duration > 0) {

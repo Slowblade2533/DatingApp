@@ -1,13 +1,16 @@
-<div class="card bg-base-100 w-1/2 mx-auto flex flex-col p-6 rounded-log shadow-lg">
+<div class="card bg-base-100 w-1/2 mx-auto flex flex-col p-6 rounded-lg shadow-lg">
   <div class="card-title justify-center text-3xl text-primary">Sign up</div>
   <div class="card-body w-full">
     <form #registerForm="ngForm" class="flex flex-col gap-4 w-full" (ngSubmit)="register()">
       <input
-        type="text"
+        type="email"
         class="input w-full"
         name="email"
         [(ngModel)]="creds.email"
         placeholder="Email"
+        autocomplete="email"
+        required
+        email
       />
       <input
         type="text"
@@ -15,18 +18,33 @@
         name="displayName"
         [(ngModel)]="creds.displayName"
         placeholder="Display Name"
+        autocomplete="name"
+        required
       />
       <input
         type="password"
         class="input w-full"
         name="password"
         [(ngModel)]="creds.password"
-        placeholder="password"
+        placeholder="Password"
+        autocomplete="password"
+        required
+        minlength="8"
       />
 
       <div class="flex items-center justify-end gap-3">
         <button (click)="cancel()" type="button" class="btn">Cancel</button>
-        <button class="btn btn-primary" type="submit">Register</button>
+        <button
+          class="btn btn-primary"
+          type="submit"
+          [disabled]="registerForm.invalid || isLoading()"
+        >
+          @if (isLoading()) {
+            <span class="loading loading-spinner loading-xs"></span>
+          } @else {
+            Register
+          }
+        </button>
       </div>
     </form>
   </div>

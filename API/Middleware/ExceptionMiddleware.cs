@@ -1,8 +1,6 @@
 using System.Net;
 using API.Errors;
-using static System.Net.WebRequestMethods;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 namespace API.Middleware;
 
 public class ExceptionMiddleware(

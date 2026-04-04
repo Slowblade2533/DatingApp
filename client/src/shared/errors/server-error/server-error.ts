@@ -11,7 +11,7 @@ import { ApiError } from '../../../types/error';
 export class ServerError {
   protected error: ApiError;
   private router = inject(Router);
-  protected showDetails = false;
+  protected showDetails = signal(false);
 
   constructor() {
     const navigation = this.router.getCurrentNavigation();
@@ -19,6 +19,6 @@ export class ServerError {
   }
 
   detailsToggle() {
-    this.showDetails = !this.showDetails;
+    this.showDetails.update((v) => !v);
   }
 }

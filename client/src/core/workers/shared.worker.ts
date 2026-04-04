@@ -46,9 +46,10 @@ async function checkHealth() {
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
   try {
-    // ✅ ใช้ HEAD + no-store เพื่อลด Payload และ Bandwidth ให้เหลือศูนย์
-    const res = await fetch(`${apiUrl}health`, {
-      method: 'HEAD',
+    // ✅ เปลี่ยนมายิงที่ /live แทน /health เฉยๆ
+    // การเช็คแบบนี้ฝั่ง Backend จะประมวลผลด้วย CPU เกือบ 0%
+    const res = await fetch(`${apiUrl}health/live`, {
+      method: 'HEAD', // หรือเปลี่ยนเป็น 'GET' ถ้าระบบเครือข่ายมีปัญหากับ HEAD
       cache: 'no-store',
       signal: controller.signal, // ✅ เชื่อมต่อ signal
     });
@@ -91,9 +92,60 @@ function broadcastAll(message: WorkerMessage, excludePort?: MessagePort) {
   });
 }
 
+// ─── Token Utils ─────────────────────────────────────────────────
+// ✅ แก้ Base64URL → Base64 ก่อน decode (JWT ใช้ Base64URL ไม่ใช่ Base64 ปกติ)
+function base64UrlDecode(str: string): string {
+  const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  return decodeURIComponent(
+    atob(base64)
+      .split('')
+      .map((c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'))
+      .join(''),
+  );
+}
+
+// ✅ เพิ่มฟังก์ชันช่วยตรวจสอบ JWT ว่าหมดอายุหรือไม่
+function isTokenExpired(token: string): boolean {
+  try {
+    const payloadBase64 = token.split('.')[1];
+    if (!payloadBase64) return false;
+
+    const payload = JSON.parse(base64UrlDecode(payloadBase64));
+
+    if (!payload.exp) return false;
+    return Date.now() >= payload.exp * 1000;
+  } catch {
+    return true;
+  }
+}
+
+// ─── Session Watcher ─────────────────────────────────────────────
+let sessionWatcherInterval: any = null;
+
+function startSessionWatcher() {
+  // ✅ ป้องกันการรัน Interval ซ้ำซ้อน
+  if (sessionWatcherInterval) return;
+
+  sessionWatcherInterval = setInterval(() => {
+    if (sharedState.user?.token && isTokenExpired(sharedState.user.token)) {
+      sharedState = { user: null, lastUpdatedAt: Date.now() };
+      broadcastAll({ type: 'FORCE_LOGOUT' }); // สั่งทุก Tab ให้เด้งออกพร้อมกัน
+    }
+  }, 10_000); // เช็คทุก 10 วินาที
+}
+
+// ✅ เรียกใช้แค่ครั้งเดียวตอนที่ Worker ถูกโหลดขึ้นมาในหน่วยความจำ
+startSessionWatcher();
+
+// ─── Connection Handler ──────────────────────────────────────────
 self.onconnect = (e: MessageEvent) => {
   const port = e.ports[0];
   connectedPorts.add(port);
+
+  // ✅ ลบ port ออกเมื่อ Tab ปิด ป้องกัน port สะสมใน Set
+  port.addEventListener('close', () => {
+    connectedPorts.delete(port);
+  });
 
   port.onmessage = async (event: MessageEvent<TabMessage>) => {
     const data = event.data;
@@ -111,18 +163,27 @@ self.onconnect = (e: MessageEvent) => {
 
       case 'LOGOUT':
         sharedState = { user: null, lastUpdatedAt: Date.now() };
-        broadcastAll({ type: 'FORCE_LOGOUT' });
+        broadcastAll({ type: 'FORCE_LOGOUT' }, port);
         break;
 
       case 'REQUEST_TOKEN_REFRESH':
         if (isRefreshing) break;
         isRefreshing = true;
         try {
-          const res = await fetch(`${apiUrl}account/refresh`, { method: 'POST' });
+          const res = await fetch(`${apiUrl}account/refresh`, {
+            method: 'POST',
+            credentials: 'include', // ✅ ส่ง cookie (HttpOnly) ไปด้วย
+            headers: { 'Content-Type': 'application/json' },
+          });
           if (res.ok) {
             const user = await res.json();
-            sharedState = { user, lastUpdatedAt: Date.now() };
-            broadcastAll({ type: 'TOKEN_REFRESHED', token: user.token });
+            // ✅ ตรวจสอบ token ใหม่ก่อนบันทึก ป้องกัน Session Watcher logout ทันที
+            if (!isTokenExpired(user.token)) {
+              sharedState = { user, lastUpdatedAt: Date.now() };
+              broadcastAll({ type: 'TOKEN_REFRESHED', token: user.token });
+            } else {
+              broadcastAll({ type: 'FORCE_LOGOUT' });
+            }
           } else {
             broadcastAll({ type: 'FORCE_LOGOUT' });
           }

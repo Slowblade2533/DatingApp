@@ -4,7 +4,6 @@ import { DatePipe } from '@angular/common';
 
 @Component({
   selector: 'app-offline-banner',
-  standalone: true,
   imports: [DatePipe],
   template: `
     @if (network.isOffline()) {

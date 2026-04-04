@@ -1,6 +1,6 @@
 import { HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { catchError, retry, tap, throwError, timer } from 'rxjs';
+import { catchError, retry, throwError, timer } from 'rxjs';
 import { NetworkStatusService } from '../services/network-status.service';
 import { environment } from '../../environments/environment';
 
@@ -23,9 +23,6 @@ export const networkResilienceInterceptor: HttpInterceptorFn = (req, next) => {
         if (!shouldRetry(req, error)) return throwError(() => error);
         return timer(Math.pow(2, retryCount - 1) * 1000);
       },
-    }),
-    tap({
-      next: () => {},
     }),
     catchError((error: HttpErrorResponse) => {
       if (isApiRequest && (error.status === 0 || error.status >= 500)) {

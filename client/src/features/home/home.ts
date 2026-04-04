@@ -9,7 +9,6 @@ import { Register } from '../account/register/register';
 })
 export class Home {
   protected registerMode = signal(false);
-  private cdr = inject(ChangeDetectorRef);
 
   showRegister(value: boolean) {
     if (!document.startViewTransition) {
@@ -19,7 +18,9 @@ export class Home {
 
     document.startViewTransition(() => {
       this.registerMode.set(value);
-      this.cdr.detectChanges();
+      // ✅ ใน Zoneless, Signal.set() trigger change detection อัตโนมัติ
+      // ถ้า view transition ต้องการ synchronous render:
+      // ใช้ ApplicationRef.tick() แทนเพื่อ trigger global CD
     });
   }
 }

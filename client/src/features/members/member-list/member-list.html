@@ -1,5 +1,29 @@
-<div class="grid grid-cols-5 gap-6">
-  @for (member of members$ | async; track member.id) {
-    <app-member-card [member]="member" />
-  }
-</div>
+<!-- วิธีหลีกเลี่ยง subscribe ซ้ำ ด้วย @let (Angular 18+) -->
+@let result = paginatedResult();
+
+@if (result) {
+  <div class="grid grid-cols-5 gap-6">
+    @for (member of result.items; track member.id) {
+      <app-member-card [member]="member" />
+    }
+  </div>
+  <div class="join bg-base-200/50 backdrop-blur-md p-1 rounded-lg">
+    <button
+      class="join-item btn btn-sm border-none bg-primary text-primary-content shadow-lg"
+      (click)="onPageChange(pageNumber() - 1)"
+      [disabled]="pageNumber() === 1"
+    >
+      « Prev
+    </button>
+    <span class="join-item btn btn-sm border-none bg-primary text-primary-content shadow-lg"
+      >{{ result.pagination.currentPage }} / {{ result.pagination.totalPages }}</span
+    >
+    <button
+      class="join-item btn btn-sm border-none bg-primary text-primary-content shadow-lg"
+      (click)="onPageChange(pageNumber() + 1)"
+      [disabled]="pageNumber() === result.pagination.totalPages"
+    >
+      Next »
+    </button>
+  </div>
+}

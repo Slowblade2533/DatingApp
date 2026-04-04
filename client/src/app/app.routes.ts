@@ -1,14 +1,10 @@
 import { Routes } from '@angular/router';
-import { Home } from '../features/home/home';
 import { authGuard } from '../core/guards/auth.guard';
-import { TestErrors } from '../features/test-errors/test-errors';
-import { NotFound } from '../shared/errors/not-found/not-found';
-import { ServerError } from '../shared/errors/server-error/server-error';
 
 export const routes: Routes = [
   {
     path: '',
-    component: Home,
+    loadComponent: () => import('../features/home/home').then((m) => m.Home),
   },
   {
     path: '',
@@ -28,6 +24,35 @@ export const routes: Routes = [
             (m) => m.MemberDetailed,
           ),
         title: 'Member Profile',
+        children: [
+          {
+            path: '',
+            redirectTo: 'profile',
+            pathMatch: 'full',
+          },
+          {
+            path: 'profile',
+            loadComponent: () =>
+              import('../features/members/member-profile/member-profile').then(
+                (m) => m.MemberProfile,
+              ),
+            title: 'Profile',
+          },
+          {
+            path: 'photos',
+            loadComponent: () =>
+              import('../features/members/member-photos/member-photos').then((m) => m.MemberPhotos),
+            title: 'Photos',
+          },
+          {
+            path: 'messages',
+            loadComponent: () =>
+              import('../features/members/member-messages/member-messages').then(
+                (m) => m.MemberMessages,
+              ),
+            title: 'MemberMessages',
+          },
+        ],
       },
       {
         path: 'lists',
@@ -43,14 +68,17 @@ export const routes: Routes = [
   },
   {
     path: 'errors',
-    component: TestErrors,
+    loadComponent: () =>
+      import('../features/test-errors/test-errors').then((m) => m.TestErrors),
   },
   {
     path: 'server-error',
-    component: ServerError,
+    loadComponent: () =>
+      import('../shared/errors/server-error/server-error').then((m) => m.ServerError),
   },
   {
     path: '**',
-    component: NotFound,
+    loadComponent: () =>
+      import('../shared/errors/not-found/not-found').then((m) => m.NotFound),
   },
 ];

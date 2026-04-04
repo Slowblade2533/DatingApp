@@ -2,6 +2,6 @@ namespace API.Interfaces;
 
 public interface IPasswordHasherService
 {
-    string HashPassword(string password);
-    bool VerifyPassword(string password, string storedHash);
+    Task<string> HashPasswordAsync(string password);
+    Task<bool> VerifyPasswordAsync(string password, string storedHash);
 }

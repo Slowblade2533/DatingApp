@@ -1,5 +1,5 @@
 <div
-  class="card bg-base-100 gap-3 w-4xl mx-auto flex flex-col items-center rounted-xl shadow-xl p-10"
+  class="card bg-base-100 gap-3 w-4xl mx-auto flex flex-col items-center rounded-xl shadow-xl p-10"
 >
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -20,7 +20,7 @@
   <p class="card-body text-xl text-center">{{ error.message }}</p>
   <button class="btn btn-primary" (click)="detailsToggle()">Details</button>
 
-  @if (showDetails) {
+  @if (showDetails()) {
     <div
       class="bg-gray-100 p-4 rounded-lg w-full overflow-auto mt-4 text-left text-sm text-gray-800"
     >

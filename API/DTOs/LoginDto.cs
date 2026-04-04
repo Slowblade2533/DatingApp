@@ -5,9 +5,11 @@ public class LoginDto
 {
     [Required]
     [EmailAddress]
+    [MaxLength(256)]
     public required string Email { get; set; }
 
     [Required]
-    [MinLength(4)]
+    [MinLength(8)]
+    [MaxLength(128)]
     public required string Password { get; set; }
 }

@@ -27,21 +27,26 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
               return throwError(() => modelStateErrors.flat());
             }
             // 2. จัดการกรณี Error 400 แบบทั่วไปที่ไม่ใช่ Validation
-            const errorMessage = typeof error.error === 'string' ? error.error : 'Bad Request';
-            toast.error(errorMessage, 5000);
+            {
+              const errorMessage = typeof error.error === 'string' ? error.error : 'Bad Request';
+              toast.error(errorMessage, 5000);
+            }
             break;
 
           case 401:
-            const isLoginRequest =
-              req.url.includes('account/login') || req.url.includes('account/register');
-            if (isLoginRequest) {
-              toast.error('Email or Password incorrect.');
-            } else {
-              // ✅ ป้องกันการแจ้งเตือนซ้ำซ้อนด้วยการเช็ค State ก่อน Logout
-              if (accountService.currentUser()) {
-                toast.error('Session expired, Please login again.');
-                accountService.logout();
-                router.navigate(['/']);
+            {
+              const isLoginRequest =
+                req.url.includes('account/login') || req.url.includes('account/register');
+
+              if (isLoginRequest) {
+                toast.error('Email or Password incorrect.');
+              } else {
+                // ✅ เช็คก่อนว่ายังมี User ค้างใน Signal ไหม เพื่อป้องกัน Toast ซ้ำซ้อน
+                if (accountService.currentUser()) {
+                  toast.error('Session expired, Please login again.');
+                  accountService.logout();
+                  router.navigate(['/']);
+                }
               }
             }
             break;

@@ -1,11 +1,11 @@
 @if (member(); as member) {
   <div
-    routerLink="/members/{{ member.id }}"
+    [routerLink]="['/members', member.id]"
     class="card cursor-pointer bg-base-100 shadow-md transition-all duration-500 ease-in-out hover:scale-105 hover:shadow-2xl"
   >
     <img
-      src="{{ member?.imageUrl || '/user.png' }}"
-      alt="{{ member.displayName }} image"
+      [src]="member?.imageUrl || '/user.png'"
+      [alt]="member.displayName + '\'s profile photo'"
       class="rounded-lg"
     />
     <div

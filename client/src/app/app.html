@@ -4,10 +4,11 @@
 
 <app-nav></app-nav>
 
+@let isSubPage = router.url !== '/';
 <div
-  [class.mt-24]="router.url !== '/'"
-  [class.container]="router.url !== '/'"
-  [class.mx-auto]="router.url !== '/'"
+  [class.mt-24]="isSubPage"
+  [class.container]="isSubPage"
+  [class.mx-auto]="isSubPage"
 >
   <router-outlet></router-outlet>
 </div>

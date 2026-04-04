@@ -1,5 +1,3 @@
-using API.Entities;
-using System.ComponentModel.DataAnnotations.Schema;
 namespace API.DTOs;
 
 public class SeedUserDto
@@ -15,8 +13,4 @@ public class SeedUserDto
     public string? Description { get; set; }
     public required string City { get; set; }
     public required string Country { get; set; }
-
-    // Navigation property
-    [ForeignKey(nameof(Id))]
-    public AppUser User { get; set; } = null!;
 }

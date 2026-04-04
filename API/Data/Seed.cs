@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using API.Entities;
 using API.DTOs;
 using API.Interfaces;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace API.Data;
 
@@ -30,13 +29,14 @@ public class Seed
 
         foreach (var member in members)
         {
+            var hashedPassword = await passwordHasher.HashPasswordAsync("Password");
             var user = new AppUser
             {
                 Id = member.Id,
                 Email = member.Email,
                 DisplayName = member.DisplayName,
                 ImageUrl = member.ImageUrl,
-                PasswordHash = passwordHasher.HashPassword("Password"),
+                PasswordHash = hashedPassword,
                 Member = new Member
                 {
                     Id = member.Id,
