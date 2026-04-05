@@ -1,6 +1,4 @@
-@let member = memberSignal();
-
-@if (member) {
+@if (member(); as member) {
   <div class="flex gap-6">
     <div class="card bg-base-100 flex flex-col h-[85vh] w-1/4">
       <img

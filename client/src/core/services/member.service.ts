@@ -14,7 +14,7 @@ export class MemberService {
 
   getMembers(pageNumber: number, pageSize: number) {
     // ใส่ pageNumber และ pageSize เป็น Query String (?pageNumber=1&pageSize=10)
-    let params = new HttpParams().set('pageNumber', pageNumber).set('pageSize', pageSize);
+    const params = new HttpParams().set('pageNumber', pageNumber).set('pageSize', pageSize);
 
     return this.http
       .get<Member[]>(this.baseUrl + 'members', {

@@ -1,5 +1,5 @@
-import { Component, DestroyRef, inject, input, OnInit, signal } from '@angular/core';
-import { MemberService } from '../../../core/services/member.service';
+import { Component, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import {
   ActivatedRoute,
   NavigationEnd,
@@ -8,8 +8,8 @@ import {
   RouterLinkActive,
   RouterOutlet,
 } from '@angular/router';
-import { filter, switchMap } from 'rxjs';
-import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { filter, map, startWith } from 'rxjs';
+import { Member } from '../../../types/member';
 
 @Component({
   selector: 'app-member-detailed',
@@ -17,34 +17,19 @@ import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-i
   templateUrl: './member-detailed.html',
   styleUrl: './member-detailed.css',
 })
-export class MemberDetailed implements OnInit {
-  // รับ id จาก URL path 'members/:id' อัตโนมัติ
-  id = input.required<string>();
-
-  private memberService = inject(MemberService);
+export class MemberDetailed {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private destroyRef = inject(DestroyRef);
 
-  // สร้าง Observable ที่จะทำงานใหม่ทุกครั้งที่ id() เปลี่ยนค่า
-  protected memberSignal = toSignal(
-    toObservable(this.id).pipe(switchMap((id) => this.memberService.getMember(id))),
-    { initialValue: null },
+  // toSignal จัดการ subscribe/unsubscribe ให้อัตโนมัติ
+  protected member = toSignal(this.route.data.pipe(map((data) => data['member'] as Member)));
+
+  protected title = toSignal(
+    this.router.events.pipe(
+      filter((e) => e instanceof NavigationEnd),
+      startWith(null),
+      map(() => this.route.firstChild?.snapshot?.title ?? 'Profile'),
+    ),
+    { initialValue: 'Profile' },
   );
-
-  protected title = signal<string | undefined>('Profile');
-
-  ngOnInit(): void {
-    // อัปเดต Title เมื่อมีการเปลี่ยน Route ภายใน (Child Routes)
-    this.router.events
-      .pipe(
-        filter((event) => event instanceof NavigationEnd),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe({
-        next: () => {
-          this.title.set(this.route.firstChild?.snapshot?.title);
-        },
-      });
-  }
 }

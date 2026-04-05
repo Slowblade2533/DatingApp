@@ -1,4 +1,4 @@
-export type Member = {
+export interface Member {
   id: string;
   dateofBirth: string;
   imageUrl?: string;
@@ -9,11 +9,11 @@ export type Member = {
   description?: string;
   city: string;
   country: string;
-};
+}
 
-export type Photo = {
+export interface Photo {
   id: number;
   url: string;
   publicId?: string;
   memberId: string;
-};
+}

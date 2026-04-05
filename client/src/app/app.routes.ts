@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from '../core/guards/auth.guard';
+import { memberResolver } from '../features/members/member-resolver';
 
 export const routes: Routes = [
   {
@@ -8,7 +9,7 @@ export const routes: Routes = [
   },
   {
     path: '',
-    runGuardsAndResolvers: 'always',
+    runGuardsAndResolvers: 'paramsChange',
     canActivate: [authGuard],
     children: [
       {
@@ -19,6 +20,7 @@ export const routes: Routes = [
       },
       {
         path: 'members/:id',
+        resolve: { member: memberResolver },
         loadComponent: () =>
           import('../features/members/member-detailed/member-detailed').then(
             (m) => m.MemberDetailed,
@@ -68,8 +70,7 @@ export const routes: Routes = [
   },
   {
     path: 'errors',
-    loadComponent: () =>
-      import('../features/test-errors/test-errors').then((m) => m.TestErrors),
+    loadComponent: () => import('../features/test-errors/test-errors').then((m) => m.TestErrors),
   },
   {
     path: 'server-error',
@@ -78,7 +79,6 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    loadComponent: () =>
-      import('../shared/errors/not-found/not-found').then((m) => m.NotFound),
+    loadComponent: () => import('../shared/errors/not-found/not-found').then((m) => m.NotFound),
   },
 ];

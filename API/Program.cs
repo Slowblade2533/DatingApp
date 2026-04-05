@@ -41,7 +41,19 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 // =========================================================
 builder.Services.AddRateLimiter(options =>
 {
-    // ถึงขั้นตอนนี้ context.Connection.RemoteIpAddress จะเป็น IP จริงของ User แล้ว 
+    // ✅ เพิ่ม Global Rate Limit เป็น fallback
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>
+    (context =>
+    {
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 100,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        });
+    });
+    // ถึงขั้นตอนนี้ context.Connection.RemoteIpAddress จะเป็น IP จริงของ User แล้ว
     // เพราะผ่าน ForwardedHeadersMiddleware มาแล้ว
     options.AddPolicy("LoginPolicy", context =>
     {
@@ -70,7 +82,27 @@ builder.Services.AddDbContextPool<AppDbContext>(opt =>
 {
     opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
-builder.Services.AddCors();
+
+var allowedOrigins = builder.Configuration
+.GetSection("AllowOrigins")
+.Get<string[]>()
+?? ["https://yourdomain.com"];
+
+if (builder.Environment.IsDevelopment())
+{
+    allowedOrigins = [..allowedOrigins, "http://localhost:4200", "https://localhost:4200"];
+}
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ProductionPolicy", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+            .WithHeaders("Authorization", "Content-Type")
+            .WithMethods("GET", "POST", "PUT", "DELETE")
+            .WithExposedHeaders("Pagination");
+    });
+});
 builder.Services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IMemberRepository, MemberRepository>();
@@ -78,8 +110,13 @@ builder.Services.AddScoped<IMemberRepository, MemberRepository>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        // ✅ ควรอ่านจาก Environment Variable หรือ Secret Manager
+        // ❌ ถ้า appsettings.json ถูก commit ขึ้น Git = key หลุด
         var tokenKey = builder.Configuration["TokenKey"]
-            ?? throw new Exception("Token key not found - Program.cs");
+            ?? throw new InvalidOperationException("JWT TokenKey is not configured.");
+        // ควรตรวจ minimum length ด้วย
+        if (tokenKey.Length < 32)
+            throw new InvalidOperationException("JWT TokenKey must be at least 32 characters.");
 
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -96,15 +133,29 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddOutputCache(options =>
 {
+    // ✅ แยก Cache ตาม User
     options.AddPolicy("Members", builder =>
         builder.Expire(TimeSpan.FromSeconds(30))
-            .SetVaryByQuery("pageNumber", "pageSize"));
+            .SetVaryByQuery("pageNumber", "pageSize")
+            .SetVaryByHeader("Authorization"));
 });
 
 var app = builder.Build();
 
 // =========================================================
 // Middleware Pipeline (*** ลำดับบรรทัดสำคัญมาก ***)
+// ✅ ลำดับที่ถูกต้อง
+// 1. ForwardedHeaders
+// 2. Security Headers
+// 3. Exception Middleware
+// 4. Routing
+// 5. HSTS / Swagger
+// 6. Rate Limiter
+// 7. CORS
+// 8. Output Cache    ← เพิ่ม
+// 9. Authentication
+// 10. Authorization
+// 11. Map Controllers & Health Checks
 // =========================================================
 
 // 1. ต้องอยู่บนสุด เพื่อสลับ IP ปลอม (Proxy) เป็น IP จริง (User) ก่อนที่ Middleware อื่นจะทำงาน
@@ -113,19 +164,29 @@ app.UseForwardedHeaders();
 // 2. Security Headers
 app.Use(async (context, next) =>
 {
+    // ✅ เพิ่ม Headers ที่จำเป็น
     context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
     context.Response.Headers.Append("X-Frame-Options", "DENY");
     context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers.Append("X-Permitted-Cross-Domain-Policies", "none");
+    context.Response.Headers.Append("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    context.Response.Headers.Append(
+        "Content-Security-Policy",
+        "default-src 'self'; frame-ancestors 'none';"
+    );
+    // ลบ Header ที่เปิดเผย Tech Stack
+    context.Response.Headers.Remove("Server");
+    context.Response.Headers.Remove("X-Powered-By");
     await next();
 });
 
 // 3. ดักจับ Error
 app.UseMiddleware<ExceptionMiddleware>();
 
-// 3. กำหนด Routing
+// 4. กำหนด Routing
 app.UseRouting();
 
-// 3.1 Configure the HTTP request pipeline
+// 5. Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -139,21 +200,23 @@ else
     app.UseHsts();
 }
 
-// 4. Rate Limiter ต้องอยู่หลัง Routing แต่ "ต้องอยู่ก่อน" Auth
+// 6. Rate Limiter ต้องอยู่หลัง Routing แต่ "ต้องอยู่ก่อน" Auth
 // เพื่อไม่ให้เปลือง CPU ในการถอดรหัส Token หาก User คนนั้นโดน Block อยู่แล้ว
 app.UseRateLimiter();
 
-// 5. CORS
-app.UseCors(x => x.AllowAnyHeader()
-    .AllowAnyMethod()
-    .WithExposedHeaders("Pagination")
-    .WithOrigins("http://localhost:4200", "https://localhost:4200"));
+// 7. CORS
+app.UseCors("ProductionPolicy");
 
-// 6. Authentication & Authorization
+// 8. Output Cache
+app.UseOutputCache();
+
+// 9. Authentication
 app.UseAuthentication();
+
+// 10. Authorization
 app.UseAuthorization();
 
-// 7. Map Controllers & Health Checks
+// 11. Map Controllers & Health Checks
 app.MapControllers();
 
 // ให้ Frontend (Angular) เรียกใช้แค่ตัวนี้พอ เพราะต้องการรู้แค่ว่า Server ยังไม่ตาย
@@ -164,10 +227,18 @@ app.MapHealthChecks("/api/health/live", new HealthCheckOptions
 });
 
 // ให้ระบบ Infra (เช่น AWS ALB, Kubernetes) ใช้ตัวนี้ เพื่อเช็คก่อนโยน Traffic มาให้
+// ✅ จำกัด access เฉพาะ internal network หรือใส่ Auth
 app.MapHealthChecks("/api/health/ready", new HealthCheckOptions
 {
-    Predicate = r => r.Tags.Contains("ready")
-});
+    Predicate = r => r.Tags.Contains("ready"),
+    ResponseWriter = async (context, report) =>
+    {
+        // ไม่แสดง detail ถ้าเรียกจากภายนอก
+        context.Response.ContentType = "application/json";
+        var result = report.Status == HealthStatus.Healthy ? "Healthy" : "Unhealthy";
+        await context.Response.WriteAsync($"{{\"status\":\"{result}\"}}");
+    }
+}).RequireAuthorization();
 
 // seeding db for data test
 /*
