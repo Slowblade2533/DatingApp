@@ -1,11 +1,12 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, DestroyRef, inject, model, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { AccountService } from '../../core/services/account.service';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { finalize } from 'rxjs';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { HttpErrorResponse } from '@angular/common/http';
+import { AccountService } from '../../core/services/account.service';
 import { ToastService } from '../../core/services/toast.service';
+import { themes } from '../theme';
 
 @Component({
   selector: 'app-nav',
@@ -13,19 +14,35 @@ import { ToastService } from '../../core/services/toast.service';
   templateUrl: './nav.html',
   styleUrl: './nav.css',
 })
-export class Nav {
-  protected accountService = inject(AccountService);
+export class Nav implements OnInit {
+  private accountService = inject(AccountService);
   private router = inject(Router);
   private toast = inject(ToastService);
+  protected selectedTheme = signal<string>(localStorage.getItem('theme') || 'light');
+  protected themes = themes;
+
+  ngOnInit(): void {
+    document.documentElement.setAttribute('data-theme', this.selectedTheme());
+  }
+
+  handleSelectTheme(theme: string) {
+    this.selectedTheme.set(theme);
+    localStorage.setItem('theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    const element = document.activeElement as HTMLDivElement;
+    if (element) element.blur();
+  }
 
   // Inject DestroyRef เพื่อใช้ติดตามอายุขัยของ Component
   private destroyRef = inject(DestroyRef);
 
-  protected email = signal('');
-  protected password = signal('');
+  protected email = model('');
+  protected password = model('');
 
   // เพิ่ม Signal สำหรับจัดการสถานะ Loading (นำไป bind ใส่ [disabled]="isLoading()" ที่ปุ่ม HTML)
   protected isLoading = signal(false);
+
+  protected readonly currentUser = this.accountService.currentUser;
 
   login() {
     // ป้องกันการยิง API ซ้ำหากผู้ใช้กดรัวๆ
@@ -50,7 +67,10 @@ export class Nav {
           this.router.navigateByUrl('/members');
           this.toast.success('Logged in successfully');
         },
-        error: (error: HttpErrorResponse) => {},
+        error: (error: HttpErrorResponse) => {
+          const message = error.error?.message ?? 'Login failed. Please try again.';
+          this.toast.error(message);
+        },
       });
   }
 

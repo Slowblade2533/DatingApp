@@ -9,11 +9,12 @@ import {
   RouterOutlet,
 } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
+import { AgePipe } from '../../../core/pipes/age-pipe';
 import { Member } from '../../../types/member';
 
 @Component({
   selector: 'app-member-detailed',
-  imports: [RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, AgePipe],
   templateUrl: './member-detailed.html',
   styleUrl: './member-detailed.css',
 })
