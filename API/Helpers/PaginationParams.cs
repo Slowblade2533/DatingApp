@@ -2,12 +2,17 @@ namespace API.Helpers;
 
 public class PaginationParams
 {
-    private const int MaxPageSize = 50; // ป้องกันคนใส่ PageSize มา 1 ล้านแล้วดึงทำเซิร์ฟเวอร์พัง
-    public int PageNumber { get; set; } = 1;
-    private int _pageSize = 10; // ค่าเริ่มต้นดึงทีละ 10 คน
+    public const int MaxPageSize = 50;
+    private int _pageNumber = 1;
+    private int _pageSize = 10;
+    public int PageNumber
+    {
+        get => _pageNumber;
+        set => _pageNumber = Math.Max(1, value);
+    }
     public int PageSize
     {
         get => _pageSize;
-        set => _pageSize = (value > MaxPageSize) ? MaxPageSize : value;
+        set => _pageSize = Math.Clamp(value, 1, MaxPageSize);
     }
 }

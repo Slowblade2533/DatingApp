@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   ActivatedRoute,
@@ -10,7 +10,8 @@ import {
 } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
 import { AgePipe } from '../../../core/pipes/age-pipe';
-import { Member } from '../../../types/member';
+import { AccountService } from '../../../core/services/account.service';
+import { MemberService } from '../../../core/services/member.service';
 
 @Component({
   selector: 'app-member-detailed',
@@ -21,10 +22,13 @@ import { Member } from '../../../types/member';
 export class MemberDetailed {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-
+  private accountService = inject(AccountService);
+  protected memberService = inject(MemberService);
   // toSignal จัดการ subscribe/unsubscribe ให้อัตโนมัติ
-  protected member = toSignal(this.route.data.pipe(map((data) => data['member'] as Member)));
-
+  //protected member = toSignal(this.route.data.pipe(map((data) => data['member'] as Member)));
+  protected isCurrentUser = computed(() => {
+    return this.accountService.currentUser()?.id === this.route.snapshot.paramMap.get('id');
+  });
   protected title = toSignal(
     this.router.events.pipe(
       filter((e) => e instanceof NavigationEnd),

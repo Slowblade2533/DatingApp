@@ -42,7 +42,7 @@ public class Seed
                     Id = member.Id,
                     DisplayName = member.DisplayName,
                     Description = member.Description,
-                    DateofBirth = member.DateofBirth,
+                    DateOfBirth = member.DateOfBirth,
                     ImageUrl = member.ImageUrl,
                     Gender = member.Gender,
                     City = member.City,

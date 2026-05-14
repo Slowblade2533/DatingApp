@@ -7,6 +7,7 @@ namespace API.Interfaces;
 public interface IMemberRepository
 {
     Task<Member?> GetMemberByIdAsync(string id, CancellationToken ct = default);
+    Task<Member?> GetMemberForUpdateAsync(string id, CancellationToken ct = default);
     Task<PagedList<MemberDto>> GetMembersAsync(PaginationParams paginationParams, CancellationToken ct = default);
     Task<IReadOnlyList<Photo>> GetPhotosForMemberAsync(string memberId, CancellationToken ct = default);
     Task<bool> SaveAllAsync(CancellationToken ct = default);

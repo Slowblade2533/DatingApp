@@ -7,39 +7,50 @@ using System.IdentityModel.Tokens.Jwt;
 
 namespace API.Services;
 
-public class TokenService(IConfiguration config) : ITokenService
+public sealed class TokenService : ITokenService
 {
+    private readonly JwtSecurityTokenHandler _tokenHandler = new();
+    private readonly SigningCredentials _credentials;
+    private readonly string _issuer;
+    private readonly string _audience;
+    private readonly TimeSpan _lifetime;
+
+    public TokenService(IConfiguration config)
+    {
+        var tokenKey = config["Jwt:TokenKey"] ?? config["TokenKey"]
+            ?? throw new InvalidOperationException("JWT token key is not configured.");
+
+        var tokenKeyBytes = Encoding.UTF8.GetBytes(tokenKey);
+
+        if (tokenKeyBytes.Length < 64)
+            throw new InvalidOperationException("JWT token key must be at least 64 bytes for HS512.");
+
+        _issuer = config["Jwt:Issuer"] ?? "DatingApp-API";
+        _audience = config["Jwt:Audience"] ?? "DatingApp-Client";
+        _lifetime = TimeSpan.FromMinutes(config.GetValue("Jwt:ExpireMinutes", 60));
+
+        var key = new SymmetricSecurityKey(tokenKeyBytes);
+        _credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
+    }
     public string CreateToken(AppUser user)
     {
-        var tokenKey = config["TokenKey"]
-            ?? throw new Exception("Cannot get token key");
-
-        if (tokenKey.Length < 64)
-            throw new Exception("Your token key needs to be >= 64 characters");
-
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(tokenKey));
-
-        var claims = new List<Claim>
+        var claims = new[]
         {
-            new (ClaimTypes.Email, user.Email),
-            new (ClaimTypes.NameIdentifier, user.Id),
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(ClaimTypes.NameIdentifier, user.Id)
         };
 
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
-
-        var tokenDescriptor = new SecurityTokenDescriptor
+        var descriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddHours(1),
-            Issuer = "DatingApp-API",
-            Audience = "DatingApp-Client",
-            SigningCredentials = creds
+            Expires = DateTime.UtcNow.Add(_lifetime),
+            Issuer = _issuer,
+            Audience = _audience,
+            SigningCredentials = _credentials
         };
 
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var token = tokenHandler.CreateToken(tokenDescriptor);
+        var token = _tokenHandler.CreateToken(descriptor);
 
-        return tokenHandler.WriteToken(token);
+        return _tokenHandler.WriteToken(token);
     }
 }

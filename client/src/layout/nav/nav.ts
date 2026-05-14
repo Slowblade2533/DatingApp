@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AccountService } from '../../core/services/account.service';
+import { BusyService } from '../../core/services/busy.service';
 import { ToastService } from '../../core/services/toast.service';
 import { themes } from '../theme';
 
@@ -16,6 +17,7 @@ import { themes } from '../theme';
 })
 export class Nav implements OnInit {
   private accountService = inject(AccountService);
+  protected busyService = inject(BusyService);
   private router = inject(Router);
   private toast = inject(ToastService);
   protected selectedTheme = signal<string>(localStorage.getItem('theme') || 'light');

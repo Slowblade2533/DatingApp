@@ -1,38 +1,53 @@
 using Microsoft.EntityFrameworkCore;
+
 namespace API.Helpers;
 
-public class PagedList<T> : List<T>
+public sealed class PagedList<T> : List<T>
 {
-    public int CurrentPage { get; set; }
-    public int TotalPages { get; set; }
-    public int PageSize { get; set; }
-    public int TotalCount { get; set; }
+    public int CurrentPage { get; }
+    public int TotalPages { get; }
+    public int PageSize { get; }
+    public int TotalCount { get; }
 
     public PagedList(IEnumerable<T> items, int count, int pageNumber, int pageSize)
     {
-        CurrentPage = pageNumber;
-        TotalPages = (int)Math.Ceiling(count / (double)pageSize);
-        PageSize = pageSize;
-        TotalCount = count;
-        AddRange(items);
+        CurrentPage = Math.Max(1, pageNumber);
+        PageSize = Math.Clamp(pageSize, 1, PaginationParams.MaxPageSize);
+        TotalCount = Math.Max(0, count);
+        TotalPages = TotalCount == 0
+            ? 0
+            : (int)Math.Ceiling(TotalCount / (double)PageSize);
+
+        AddRange(items ?? Enumerable.Empty<T>());
     }
 
     // ฟังก์ชันนี้จะรับหน้าที่ไปสั่ง .Skip() และ .Take() ที่ Database ให้เราอัตโนมัติ
     public static async Task<PagedList<T>> CreateAsync(
-        IQueryable<T> source, int pageNumber, int pageSize, CancellationToken ct = default)
+        IQueryable<T> source,
+        int pageNumber,
+        int pageSize,
+        CancellationToken ct = default)
     {
-        /*
-        ⚠️ PERF-02: PagedList ทำ 2 Database Roundtrip (MEDIUM)
-        ปัญหา:
-            - ทุก Request ต้อง Query ไป Database 2 ครั้ง
-            -ไม่มีปัญหาตอนข้อมูลน้อย แต่ COUNT(*) บน Table ใหญ่จะช้าขึ้นเรื่อยๆ
-        แนะนำ (เมื่อ Scale):
-            - ใช้ Cursor-based Pagination แทน (หาก Frontend รองรับ)
-            - หรือ Cache count ไว้ช่วง 5-10 วินาทีด้วย IMemoryCache
-            - ปัจจุบันยังรับได้สำหรับ Data ระดับหมื่น
-        */
+        ArgumentNullException.ThrowIfNull(source);
+
+        var safePageNumber = Math.Max(1, pageNumber);
+        var safePageSize = Math.Clamp(pageSize, 1, PaginationParams.MaxPageSize);
+
         var count = await source.CountAsync(ct);
-        var items = await source.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(ct);
-        return new PagedList<T>(items, count, pageNumber, pageSize);
+
+        if (count == 0)
+            return new PagedList<T>([], count, safePageNumber, safePageSize);
+
+        var skip = (long)(safePageNumber - 1) * safePageSize;
+
+        if (skip >= count)
+            return new PagedList<T>([], count, safePageNumber, safePageSize);
+
+        var items = await source
+            .Skip((int)skip)
+            .Take(safePageSize)
+            .ToListAsync(ct);
+
+        return new PagedList<T>(items, count, safePageNumber, safePageSize);
     }
 }

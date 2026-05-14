@@ -1,6 +1,7 @@
 using System.Net;
 using API.Errors;
 using System.Text.Json;
+
 namespace API.Middleware;
 
 public class ExceptionMiddleware(

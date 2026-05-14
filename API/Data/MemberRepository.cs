@@ -8,17 +8,23 @@ namespace API.Data;
 
 public class MemberRepository(AppDbContext context) : IMemberRepository
 {
-    public async Task<Member?> GetMemberByIdAsync(string id, CancellationToken ct = default)
+    public Task<Member?> GetMemberByIdAsync(string id, CancellationToken ct = default)
     {
-        return await context.Members
+        return context.Members
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, ct);
+    }
+
+    public Task<Member?> GetMemberForUpdateAsync(string id, CancellationToken ct = default)
+    {
+        return context.Members
+            .Include(x => x.User)
+            .SingleOrDefaultAsync(x => x.Id == id, ct);
     }
 
     public async Task<PagedList<MemberDto>> GetMembersAsync(
         PaginationParams paginationParams, CancellationToken ct = default)
     {
-        // PERF-01: Projection — ดึงเฉพาะ Column ที่จำเป็นสำหรับหน้า List
         var query = context.Members
             .AsNoTracking()
             .Select(m => new MemberDto
@@ -29,7 +35,7 @@ public class MemberRepository(AppDbContext context) : IMemberRepository
                 City = m.City,
                 Country = m.Country,
                 Gender = m.Gender,
-                DateofBirth = m.DateofBirth,
+                DateOfBirth = m.DateOfBirth,
             });
 
         return await PagedList<MemberDto>.CreateAsync(

@@ -1,6 +1,6 @@
 export interface Member {
   id: string;
-  dateofBirth: string;
+  dateOfBirth: string;
   imageUrl?: string;
   displayName: string;
   created: string;
@@ -16,4 +16,11 @@ export interface Photo {
   url: string;
   publicId?: string;
   memberId: string;
+}
+
+export interface EditableMember {
+  displayName: string;
+  description?: string;
+  city: string;
+  country: string;
 }

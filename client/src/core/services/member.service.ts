@@ -1,8 +1,8 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
-import { map } from 'rxjs';
+import { inject, Injectable, signal } from '@angular/core';
+import { map, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Member, Photo } from '../../types/member';
+import { EditableMember, Member, Photo } from '../../types/member';
 import { PaginatedResult, PaginationHeader } from '../../types/pagination';
 
 @Injectable({
@@ -11,6 +11,8 @@ import { PaginatedResult, PaginationHeader } from '../../types/pagination';
 export class MemberService {
   private http = inject(HttpClient);
   private baseUrl = environment.apiUrl;
+  editMode = signal(false);
+  member = signal<Member | null>(null);
 
   getMembers(pageNumber: number, pageSize: number) {
     // ใส่ pageNumber และ pageSize เป็น Query String (?pageNumber=1&pageSize=10)
@@ -49,10 +51,18 @@ export class MemberService {
   }
 
   getMember(id: string) {
-    return this.http.get<Member>(this.baseUrl + 'members/' + id);
+    return this.http.get<Member>(this.baseUrl + 'members/' + id).pipe(
+      tap((member) => {
+        this.member.set(member);
+      }),
+    );
   }
 
   getMemberPhotos(id: string) {
     return this.http.get<Photo[]>(this.baseUrl + 'members/' + id + '/photos');
+  }
+
+  updateMember(member: EditableMember) {
+    return this.http.put(this.baseUrl + 'members', member);
   }
 }
