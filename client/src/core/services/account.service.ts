@@ -1,11 +1,11 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { inject, Injectable, OnDestroy, signal } from '@angular/core';
-import { LoginCreds, RegisterCreds, User } from '../../types/user';
-import { catchError, Subscription, tap, throwError } from 'rxjs';
-import { environment } from '../../environments/environment';
-import { Router } from '@angular/router';
-import { SharedWorkerService } from './shared-worker.service';
+import { inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Router } from '@angular/router';
+import { catchError, tap, throwError } from 'rxjs';
+import { environment } from '../../environments/environment';
+import { LoginCreds, RegisterCreds, User } from '../../types/user';
+import { SharedWorkerService } from './shared-worker.service';
 
 @Injectable({
   providedIn: 'root',

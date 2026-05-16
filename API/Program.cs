@@ -1,8 +1,10 @@
 using API.Data;
+using API.Helpers;
 using API.Interfaces;
 using API.Middleware;
 using API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
@@ -32,6 +34,13 @@ if (env.IsDevelopment())
 }
 
 ConfigureForwardedHeaders(services, config);
+
+services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(180);
+    options.IncludeSubDomains = false;
+    options.Preload = false;
+});
 
 services.AddControllers();
 
@@ -76,12 +85,13 @@ services.AddRateLimiter(options =>
             }));
 
     options.AddPolicy(LoginRateLimitPolicy, context =>
-        RateLimitPartition.GetFixedWindowLimiter(
+        RateLimitPartition.GetSlidingWindowLimiter(
             partitionKey: GetClientIp(context),
-            factory: _ => new FixedWindowRateLimiterOptions
+            factory: _ => new SlidingWindowRateLimiterOptions
             {
                 PermitLimit = config.GetValue("RateLimit:Login:PermitLimit", 5),
                 Window = TimeSpan.FromMinutes(config.GetValue("RateLimit:Login:WindowMinutes", 1)),
+                SegmentsPerWindow = config.GetValue("RateLimit:Login:SegmentsPerWindow", 4),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 0,
                 AutoReplenishment = true
@@ -95,14 +105,16 @@ services.AddOutputCache(options =>
 {
     options.AddPolicy(MembersCachePolicy, policy => policy
     .Expire(TimeSpan.FromSeconds(30))
-    .SetVaryByQuery("pageNumber", "pageSize"));
+    .SetVaryByQuery("*"));
 });
 
 services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
 services.AddScoped<ITokenService, TokenService>();
+services.AddScoped<IPhotoService, PhotoService>();
 services.AddScoped<IMemberRepository, MemberRepository>();
 services.AddScoped<IUserRepository, UserRepository>();
 services.AddScoped<IAccountService, AccountService>();
+services.Configure<CloudinarySettings>(config.GetSection("CloudinarySettings"));
 
 var tokenKey = config["Jwt:TokenKey"] ?? config["TokenKey"]
     ?? throw new InvalidOperationException("JWT token key is not configured.");
@@ -134,6 +146,10 @@ services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 services.AddAuthorization(options =>
 {
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+
     options.AddPolicy(HealthCheckPolicy, policy => policy.RequireAuthenticatedUser());
 });
 
@@ -172,7 +188,9 @@ app.UseOutputCache();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi().CacheOutput();
+    app.MapOpenApi()
+        .CacheOutput()
+        .AllowAnonymous();
 }
 
 app.MapControllers();
@@ -181,7 +199,7 @@ app.MapHealthChecks("/api/health/live", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("live"),
     AllowCachingResponses = false
-});
+}).AllowAnonymous();
 
 app.MapHealthChecks("/api/health/ready", new HealthCheckOptions
 {
@@ -190,8 +208,10 @@ app.MapHealthChecks("/api/health/ready", new HealthCheckOptions
     ResponseWriter = async (context, report) =>
     {
         context.Response.ContentType = "application/json";
-        var status = report.Status == HealthStatus.Healthy ? "Healthy" : "Unhealthy";
-        await context.Response.WriteAsync($$"""{"status":"{{status}}"}""");
+        await context.Response.WriteAsJsonAsync(new
+        {
+            status = report.Status.ToString()
+        });
     }
 }).RequireAuthorization(HealthCheckPolicy);
 
@@ -216,21 +236,26 @@ static void ConfigureForwardedHeaders(IServiceCollection services, IConfiguratio
 
         foreach (var proxy in knownProxies)
         {
-            if (IPAddress.TryParse(proxy, out var address))
+            if (!IPAddress.TryParse(proxy, out var address))
             {
-                options.KnownProxies.Add(address);
+                throw new InvalidOperationException($"Invalid forwarded header known proxy: {proxy}");
             }
+
+            options.KnownProxies.Add(address);
         }
 
         foreach (var network in knownNetworks)
         {
             var parts = network.Split('/', 2);
-            if (parts.Length == 2
-                && IPAddress.TryParse(parts[0], out var prefix)
-                && int.TryParse(parts[1], out var prefixLength))
+
+            if (parts.Length != 2
+                || !IPAddress.TryParse(parts[0], out var prefix)
+                || !int.TryParse(parts[1], out var prefixLength))
             {
-                options.KnownNetworks.Add(new ForwardedHeaderNetwork(prefix, prefixLength));
+                throw new InvalidOperationException($"Invalid forwarded header known network: {network}");
             }
+
+            options.KnownNetworks.Add(new ForwardedHeaderNetwork(prefix, prefixLength));
         }
     });
 }
@@ -253,6 +278,7 @@ static string[] GetAllowedOrigins(IConfiguration config, IWebHostEnvironment env
 static string GetClientIp(HttpContext context)
 {
     var ip = context.Connection.RemoteIpAddress;
+
     if (ip is null)
     {
         return "unknown";
@@ -264,6 +290,7 @@ static string GetClientIp(HttpContext context)
 static void AddSecurityHeaders(HttpContext context, IWebHostEnvironment env)
 {
     var headers = context.Response.Headers;
+
     headers["X-Content-Type-Options"] = "nosniff";
     headers["X-Frame-Options"] = "DENY";
     headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
@@ -278,9 +305,10 @@ static void AddSecurityHeaders(HttpContext context, IWebHostEnvironment env)
 
 static async ValueTask WriteRateLimitResponseAsync(
     OnRejectedContext context,
-    CancellationToken cancellationToken)
+    CancellationToken ct = default)
 {
     var response = context.HttpContext.Response;
+
     response.StatusCode = StatusCodes.Status429TooManyRequests;
     response.ContentType = "application/problem+json";
 
@@ -293,7 +321,7 @@ static async ValueTask WriteRateLimitResponseAsync(
     {
         status = StatusCodes.Status429TooManyRequests,
         title = "Too many requests"
-    }, cancellationToken);
+    }, ct);
 }
 
 /***********/
