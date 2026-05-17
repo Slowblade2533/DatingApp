@@ -33,7 +33,9 @@
         <a routerLink="/lists" routerLinkActive="text-accent">Lists</a>
         <a routerLink="/messages" routerLinkActive="text-accent">Messages</a>
       }
-      <a routerLink="/errors" routerLinkActive="text-accent">Errors</a>
+      @if (showDebugRoutes) {
+        <a routerLink="/errors" routerLinkActive="text-accent">Errors</a>
+      }
     </nav>
 
     @if (busyService.busyRequestCount() > 0) {

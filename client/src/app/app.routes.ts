@@ -2,6 +2,16 @@ import { Routes } from '@angular/router';
 import { authGuard } from '../core/guards/auth.guard';
 import { preventUnsavedChangesGuard } from '../core/guards/prevent-unsaved-changes-guard';
 import { memberResolver } from '../features/members/member-resolver';
+import { environment } from '../environments/environment';
+
+const devOnlyRoutes: Routes = environment.production
+  ? []
+  : [
+      {
+        path: 'errors',
+        loadComponent: () => import('../features/test-errors/test-errors').then((m) => m.TestErrors),
+      },
+    ];
 
 export const routes: Routes = [
   {
@@ -70,10 +80,7 @@ export const routes: Routes = [
       },
     ],
   },
-  {
-    path: 'errors',
-    loadComponent: () => import('../features/test-errors/test-errors').then((m) => m.TestErrors),
-  },
+  ...devOnlyRoutes,
   {
     path: 'server-error',
     loadComponent: () =>

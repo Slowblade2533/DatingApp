@@ -8,6 +8,7 @@ import { AccountService } from '../../core/services/account.service';
 import { BusyService } from '../../core/services/busy.service';
 import { ToastService } from '../../core/services/toast.service';
 import { themes } from '../theme';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-nav',
@@ -22,6 +23,7 @@ export class Nav implements OnInit {
   private toast = inject(ToastService);
   protected selectedTheme = signal<string>(localStorage.getItem('theme') || 'light');
   protected themes = themes;
+  protected showDebugRoutes = !environment.production;
 
   ngOnInit(): void {
     document.documentElement.setAttribute('data-theme', this.selectedTheme());
