@@ -1,17 +1,32 @@
-import { HttpEvent, HttpInterceptorFn } from '@angular/common/http';
+import { HttpInterceptorFn, HttpRequest, HttpResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { delay, finalize, of, tap } from 'rxjs';
 import { BusyService } from '../services/busy.service';
 
-const cache = new Map<string, HttpEvent<unknown>>();
+const cache = new Map<string, HttpResponse<unknown>>();
+
+function shouldUseCache(req: HttpRequest<unknown>): boolean {
+  // Do not cache authenticated requests to avoid cross-session data leakage.
+  return req.method === 'GET' && !req.headers.has('Authorization');
+}
+
+function getCacheKey(req: HttpRequest<unknown>): string {
+  // Include query params to avoid serving the wrong page/filter response.
+  return req.urlWithParams;
+}
 
 export const loadingInterceptor: HttpInterceptorFn = (req, next) => {
   const busyService = inject(BusyService);
 
-  if (req.method === 'GET') {
-    const cachedResponse = cache.get(req.url);
+  // Any mutation may make previous GET cache stale.
+  if (req.method !== 'GET') {
+    cache.clear();
+  }
+
+  if (shouldUseCache(req)) {
+    const cachedResponse = cache.get(getCacheKey(req));
     if (cachedResponse) {
-      return of(cachedResponse);
+      return of(cachedResponse.clone());
     }
   }
 
@@ -19,8 +34,10 @@ export const loadingInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(req).pipe(
     delay(500),
-    tap((response) => {
-      cache.set(req.url, response);
+    tap((event) => {
+      if (shouldUseCache(req) && event instanceof HttpResponse) {
+        cache.set(getCacheKey(req), event.clone());
+      }
     }),
     finalize(() => {
       busyService.idle();
