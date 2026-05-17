@@ -1,6 +1,6 @@
 import { HttpInterceptorFn, HttpRequest, HttpResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { delay, finalize, of, tap } from 'rxjs';
+import { finalize, of, tap } from 'rxjs';
 import { BusyService } from '../services/busy.service';
 
 const cache = new Map<string, HttpResponse<unknown>>();
@@ -33,7 +33,6 @@ export const loadingInterceptor: HttpInterceptorFn = (req, next) => {
   busyService.busy();
 
   return next(req).pipe(
-    delay(500),
     tap((event) => {
       if (shouldUseCache(req) && event instanceof HttpResponse) {
         cache.set(getCacheKey(req), event.clone());
