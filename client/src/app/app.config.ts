@@ -8,7 +8,6 @@ import {
 import {
   provideRouter,
   withComponentInputBinding,
-  withRouterConfig,
   withViewTransitions,
 } from '@angular/router';
 
@@ -28,7 +27,6 @@ export const appConfig: ApplicationConfig = {
     provideRouter(
       routes,
       withViewTransitions(),
-      withRouterConfig({ onSameUrlNavigation: 'reload' }),
       withComponentInputBinding(),
     ),
     provideHttpClient(
