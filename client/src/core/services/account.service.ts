@@ -15,8 +15,9 @@ export class AccountService {
   private router = inject(Router);
   private sharedWorker = inject(SharedWorkerService);
   private baseUrl = environment.apiUrl;
+  private readonly userStorageKey = 'user';
 
-  // 1. รวม Logic การโหลดจาก localStorage ไว้ที่นี่ที่เดียว
+  // 1. รวม Logic การโหลดจาก browser storage ไว้ที่นี่ที่เดียว
   currentUser = signal<User | null>(this.initializeUser());
 
   constructor() {
@@ -39,8 +40,9 @@ export class AccountService {
   }
 
   private initializeUser(): User | null {
-    const raw = localStorage.getItem('user');
+    const raw = this.readStoredUser();
     if (!raw) return null;
+
     try {
       const user = JSON.parse(raw);
 
@@ -52,10 +54,38 @@ export class AccountService {
         }
         return user;
       }
+      this.clearStoredUser();
       return null;
     } catch {
+      this.clearStoredUser();
       return null;
     }
+  }
+
+  private readStoredUser(): string | null {
+    const sessionUser = sessionStorage.getItem(this.userStorageKey);
+    if (sessionUser) return sessionUser;
+
+    // 🔒 Legacy migration: move old auth payload out of localStorage.
+    const legacyLocalUser = localStorage.getItem(this.userStorageKey);
+    if (legacyLocalUser) {
+      sessionStorage.setItem(this.userStorageKey, legacyLocalUser);
+      localStorage.removeItem(this.userStorageKey);
+      return legacyLocalUser;
+    }
+
+    return null;
+  }
+
+  private persistUser(user: User) {
+    sessionStorage.setItem(this.userStorageKey, JSON.stringify(user));
+    // Ensure no JWT remains in persistent localStorage.
+    localStorage.removeItem(this.userStorageKey);
+  }
+
+  private clearStoredUser() {
+    sessionStorage.removeItem(this.userStorageKey);
+    localStorage.removeItem(this.userStorageKey);
   }
 
   private isTokenExpired(token: string): boolean {
@@ -76,12 +106,12 @@ export class AccountService {
     if (!current) return;
     const updated = { ...current, token };
     this.currentUser.set(updated);
-    localStorage.setItem('user', JSON.stringify(updated));
+    this.persistUser(updated);
   }
 
   setCurrentUser(user: User) {
-    // หมายเหตุ: หากมีการใช้ JWT Token ควรให้ Backend ส่งเป็น HttpOnly Cookie แทนการเก็บตรงๆ
-    localStorage.setItem('user', JSON.stringify(user));
+    // หมายเหตุ: ทางที่ปลอดภัยที่สุดคือ HttpOnly Cookie จากฝั่ง Backend
+    this.persistUser(user);
     this.currentUser.set(user);
     // ✅ แจ้ง Worker ว่ามี User ใหม่ เพื่อ broadcast ไปยัง Tab อื่นๆ
     this.sharedWorker.send({ type: 'SET_USER', user });
@@ -93,7 +123,7 @@ export class AccountService {
   }
 
   private handleLocalLogout() {
-    localStorage.removeItem('user');
+    this.clearStoredUser();
     this.currentUser.set(null);
     this.router.navigate(['/']);
   }
