@@ -6,11 +6,14 @@ using API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
+using System.IO.Compression;
 using System.Net;
 using System.Text;
 using System.Threading.RateLimiting;
@@ -18,6 +21,7 @@ using ForwardedHeaderNetwork = Microsoft.AspNetCore.HttpOverrides.IPNetwork;
 
 const string CorsPolicy = "ProductionPolicy";
 const string LoginRateLimitPolicy = "LoginPolicy";
+const string RefreshRateLimitPolicy = "RefreshPolicy";
 const string MembersCachePolicy = "Members";
 const string HealthCheckPolicy = "HealthCheckPolicy";
 
@@ -44,6 +48,30 @@ services.AddHsts(options =>
 
 services.AddControllers();
 
+services.Configure<CloudinarySettings>(config.GetSection("CloudinarySettings"));
+services.Configure<AuthCookieSettings>(config.GetSection("AuthCookies"));
+services.Configure<UploadSettings>(config.GetSection("UploadSettings"));
+
+var uploadSettings = config.GetSection("UploadSettings").Get<UploadSettings>() ?? new UploadSettings();
+var authCookieSettings = config.GetSection("AuthCookies").Get<AuthCookieSettings>() ?? new AuthCookieSettings();
+
+services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = Math.Max(1, uploadSettings.MaxPhotoBytes);
+});
+
+services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["application/json"]);
+});
+
+services.Configure<GzipCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Fastest;
+});
+
 var connectionString = config.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
@@ -64,8 +92,9 @@ services.AddCors(options =>
     options.AddPolicy(CorsPolicy, policy =>
     {
         policy.WithOrigins(allowedOrigins)
-            .WithHeaders("Authorization", "Content-Type")
+            .WithHeaders("Authorization", "Content-Type", "X-Requested-With")
             .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
+            .AllowCredentials()
             .WithExposedHeaders("Pagination")
             .SetPreflightMaxAge(TimeSpan.FromHours(1));
     });
@@ -97,6 +126,19 @@ services.AddRateLimiter(options =>
                 AutoReplenishment = true
             }));
 
+    options.AddPolicy(RefreshRateLimitPolicy, context =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: GetClientIp(context),
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = config.GetValue("RateLimit:Refresh:PermitLimit", 12),
+                Window = TimeSpan.FromMinutes(config.GetValue("RateLimit:Refresh:WindowMinutes", 1)),
+                SegmentsPerWindow = config.GetValue("RateLimit:Refresh:SegmentsPerWindow", 4),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.OnRejected = WriteRateLimitResponseAsync;
 });
@@ -114,10 +156,14 @@ services.AddScoped<IPhotoService, PhotoService>();
 services.AddScoped<IMemberRepository, MemberRepository>();
 services.AddScoped<IUserRepository, UserRepository>();
 services.AddScoped<IAccountService, AccountService>();
-services.Configure<CloudinarySettings>(config.GetSection("CloudinarySettings"));
 
 var tokenKey = config["Jwt:TokenKey"] ?? config["TokenKey"]
     ?? throw new InvalidOperationException("JWT token key is not configured.");
+
+if (string.IsNullOrWhiteSpace(tokenKey))
+{
+    throw new InvalidOperationException("JWT token key is empty. Use environment secrets for Jwt:TokenKey.");
+}
 
 var tokenKeyBytes = Encoding.UTF8.GetBytes(tokenKey);
 
@@ -126,9 +172,29 @@ if (tokenKeyBytes.Length < 64)
     throw new InvalidOperationException("JWT token key must be at least 64 bytes for HS512.");
 }
 
+ValidateCloudinarySettings(config, env);
+var accessCookieName = string.IsNullOrWhiteSpace(authCookieSettings.AccessTokenName)
+    ? "da_access"
+    : authCookieSettings.AccessTokenName;
+
 services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (context.Request.Cookies.TryGetValue(accessCookieName, out var cookieToken)
+                    && !string.IsNullOrWhiteSpace(cookieToken))
+                {
+                    // Dual-mode transition: prefer HttpOnly cookie token when present.
+                    context.Token = cookieToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
@@ -178,6 +244,7 @@ else
 }
 
 app.UseHttpsRedirection();
+app.UseResponseCompression();
 
 app.UseRouting();
 app.UseCors(CorsPolicy);
@@ -258,6 +325,28 @@ static void ConfigureForwardedHeaders(IServiceCollection services, IConfiguratio
             options.KnownNetworks.Add(new ForwardedHeaderNetwork(prefix, prefixLength));
         }
     });
+}
+
+static void ValidateCloudinarySettings(IConfiguration config, IWebHostEnvironment env)
+{
+    var settings = config.GetSection("CloudinarySettings").Get<CloudinarySettings>() ?? new CloudinarySettings
+    {
+        CloudName = string.Empty,
+        ApiKey = string.Empty,
+        ApiSecret = string.Empty
+    };
+
+    if (env.IsDevelopment())
+    {
+        return;
+    }
+
+    if (string.IsNullOrWhiteSpace(settings.CloudName)
+        || string.IsNullOrWhiteSpace(settings.ApiKey)
+        || string.IsNullOrWhiteSpace(settings.ApiSecret))
+    {
+        throw new InvalidOperationException("CloudinarySettings are missing in production configuration.");
+    }
 }
 
 static string[] GetAllowedOrigins(IConfiguration config, IWebHostEnvironment env)

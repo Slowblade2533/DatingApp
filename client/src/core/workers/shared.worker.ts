@@ -122,14 +122,52 @@ function isTokenExpired(token: string): boolean {
 // ─── Session Watcher ─────────────────────────────────────────────
 let sessionWatcherInterval: any = null;
 
+async function refreshSessionFromCookie(): Promise<boolean> {
+  if (!apiUrl) return false;
+
+  const res = await fetch(`${apiUrl}account/refresh`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      sharedState = { user: null, lastUpdatedAt: Date.now() };
+      broadcastAll({ type: 'FORCE_LOGOUT' });
+    }
+    return false;
+  }
+
+  const user = await res.json();
+
+  if (user?.token && !isTokenExpired(user.token)) {
+    sharedState = { user, lastUpdatedAt: Date.now() };
+    broadcastAll({ type: 'STATE_UPDATE', payload: sharedState });
+    broadcastAll({ type: 'TOKEN_REFRESHED', token: user.token });
+    return true;
+  }
+
+  sharedState = { user: null, lastUpdatedAt: Date.now() };
+  broadcastAll({ type: 'FORCE_LOGOUT' });
+  return false;
+}
+
 function startSessionWatcher() {
   // ✅ ป้องกันการรัน Interval ซ้ำซ้อน
   if (sessionWatcherInterval) return;
 
-  sessionWatcherInterval = setInterval(() => {
+  sessionWatcherInterval = setInterval(async () => {
     if (sharedState.user?.token && isTokenExpired(sharedState.user.token)) {
-      sharedState = { user: null, lastUpdatedAt: Date.now() };
-      broadcastAll({ type: 'FORCE_LOGOUT' }); // สั่งทุก Tab ให้เด้งออกพร้อมกัน
+      if (isRefreshing) return;
+      isRefreshing = true;
+      try {
+        await refreshSessionFromCookie();
+      } catch {
+        // ถ้าต่อเน็ตไม่ได้ตอน refresh ไม่ต้อง logout ทันที ให้รอรอบถัดไป
+      } finally {
+        isRefreshing = false;
+      }
     }
   }, 10_000); // เช็คทุก 10 วินาที
 }
@@ -162,6 +200,15 @@ self.onconnect = (e: MessageEvent) => {
         break;
 
       case 'LOGOUT':
+        try {
+          await fetch(`${apiUrl}account/logout`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          });
+        } catch {
+          // ignore network failures on logout cleanup
+        }
         sharedState = { user: null, lastUpdatedAt: Date.now() };
         broadcastAll({ type: 'FORCE_LOGOUT' }, port);
         break;
@@ -170,23 +217,7 @@ self.onconnect = (e: MessageEvent) => {
         if (isRefreshing) break;
         isRefreshing = true;
         try {
-          const res = await fetch(`${apiUrl}account/refresh`, {
-            method: 'POST',
-            credentials: 'include', // ✅ ส่ง cookie (HttpOnly) ไปด้วย
-            headers: { 'Content-Type': 'application/json' },
-          });
-          if (res.ok) {
-            const user = await res.json();
-            // ✅ ตรวจสอบ token ใหม่ก่อนบันทึก ป้องกัน Session Watcher logout ทันที
-            if (!isTokenExpired(user.token)) {
-              sharedState = { user, lastUpdatedAt: Date.now() };
-              broadcastAll({ type: 'TOKEN_REFRESHED', token: user.token });
-            } else {
-              broadcastAll({ type: 'FORCE_LOGOUT' });
-            }
-          } else {
-            broadcastAll({ type: 'FORCE_LOGOUT' });
-          }
+          await refreshSessionFromCookie();
         } catch {
           // ถ้าต่อเน็ตไม่ได้ตอน refresh ไม่ต้อง logout ทันที ให้รอ retry
         } finally {

@@ -25,6 +25,30 @@ public class UserRepository(AppDbContext context) : IUserRepository
             .FirstOrDefaultAsync(x => x.Email == email, ct);
     }
 
+    public Task<AppUser?> GetByEmailForAuthAsync(string email, CancellationToken ct = default)
+    {
+        return context.Users
+            .Include(x => x.RefreshTokens)
+            .FirstOrDefaultAsync(x => x.Email == email, ct);
+    }
+
+    public Task<AppUser?> GetByIdAsync(string userId, CancellationToken ct = default)
+    {
+        return context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == userId, ct);
+    }
+
+    public Task<AppUser?> GetByRefreshTokenHashForAuthAsync(
+        string refreshTokenHash, CancellationToken ct = default)
+    {
+        return context.Users
+            .Include(x => x.RefreshTokens)
+            .FirstOrDefaultAsync(
+                x => x.RefreshTokens.Any(rt => rt.TokenHash == refreshTokenHash),
+                ct);
+    }
+
     public async Task<bool> SaveAllAsync(CancellationToken ct = default)
     {
         return await context.SaveChangesAsync(ct) > 0;

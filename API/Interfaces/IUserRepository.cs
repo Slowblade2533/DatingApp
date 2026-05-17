@@ -6,6 +6,9 @@ public interface IUserRepository
 {
     Task<bool> EmailExistAsync(string email, CancellationToken ct = default);
     Task<AppUser?> GetByEmailAsync(string email, CancellationToken ct = default);
+    Task<AppUser?> GetByEmailForAuthAsync(string email, CancellationToken ct = default);
+    Task<AppUser?> GetByIdAsync(string userId, CancellationToken ct = default);
+    Task<AppUser?> GetByRefreshTokenHashForAuthAsync(string refreshTokenHash, CancellationToken ct = default);
     void Add(AppUser user);
     Task<bool> SaveAllAsync(CancellationToken ct = default);
 }

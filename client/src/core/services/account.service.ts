@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { catchError, tap, throwError } from 'rxjs';
+import { catchError, of, tap, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { LoginCreds, RegisterCreds, User } from '../../types/user';
 import { SharedWorkerService } from './shared-worker.service';
@@ -26,7 +26,9 @@ export class AccountService {
       switch (msg.type) {
         case 'STATE_UPDATE':
           if (msg.payload.user) {
-            this.currentUser.set(msg.payload.user as User);
+            const user = msg.payload.user as User;
+            this.currentUser.set(user);
+            this.persistUser(user);
           }
           break;
         case 'FORCE_LOGOUT':
@@ -37,6 +39,8 @@ export class AccountService {
           break;
       }
     });
+
+    queueMicrotask(() => this.bootstrapCurrentUser());
   }
 
   private initializeUser(): User | null {
@@ -122,10 +126,12 @@ export class AccountService {
     this.sharedWorker.send({ type: 'LOGOUT' });
   }
 
-  private handleLocalLogout() {
+  private handleLocalLogout(shouldNavigateHome = true) {
     this.clearStoredUser();
     this.currentUser.set(null);
-    this.router.navigate(['/']);
+    if (shouldNavigateHome) {
+      this.router.navigate(['/']);
+    }
   }
 
   private authRequest(endpoint: string, creds: RegisterCreds | LoginCreds) {
@@ -145,6 +151,25 @@ export class AccountService {
 
   login(creds: LoginCreds) {
     return this.authRequest('account/login', creds);
+  }
+
+  private bootstrapCurrentUser() {
+    this.http
+      .get<User>(this.baseUrl + 'account/me')
+      .pipe(
+        catchError((error: HttpErrorResponse) => {
+          if (error.status === 401) {
+            this.handleLocalLogout(false);
+          }
+          return of(null);
+        }),
+      )
+      .subscribe((user) => {
+        if (!user) return;
+        this.persistUser(user);
+        this.currentUser.set(user);
+        this.sharedWorker.send({ type: 'SET_USER', user });
+      });
   }
 
   requestTokenRefresh() {

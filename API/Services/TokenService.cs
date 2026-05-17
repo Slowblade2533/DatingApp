@@ -1,8 +1,10 @@
+using System.Security.Cryptography;
+using System.Text;
 using API.Entities;
+using API.DTOs;
 using API.Interfaces;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
-using System.Text;
 using System.IdentityModel.Tokens.Jwt;
 
 namespace API.Services;
@@ -32,7 +34,7 @@ public sealed class TokenService : ITokenService
         var key = new SymmetricSecurityKey(tokenKeyBytes);
         _credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
     }
-    public string CreateToken(AppUser user)
+    public TokenResultDto CreateToken(AppUser user)
     {
         var claims = new[]
         {
@@ -40,17 +42,34 @@ public sealed class TokenService : ITokenService
             new Claim(ClaimTypes.NameIdentifier, user.Id)
         };
 
+        var expiresAt = DateTime.UtcNow.Add(_lifetime);
+
         var descriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.Add(_lifetime),
+            Expires = expiresAt,
             Issuer = _issuer,
             Audience = _audience,
             SigningCredentials = _credentials
         };
 
         var token = _tokenHandler.CreateToken(descriptor);
+        var tokenString = _tokenHandler.WriteToken(token);
 
-        return _tokenHandler.WriteToken(token);
+        return new TokenResultDto(tokenString, expiresAt);
+    }
+
+    public string GenerateRefreshToken()
+    {
+        Span<byte> randomBytes = stackalloc byte[64];
+        RandomNumberGenerator.Fill(randomBytes);
+        return Convert.ToBase64String(randomBytes);
+    }
+
+    public string HashRefreshToken(string refreshToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(refreshToken);
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken));
+        return Convert.ToHexString(hash);
     }
 }

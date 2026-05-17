@@ -10,7 +10,13 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   // ✅ ตรวจสอบว่าเป็น request ไปยัง API ของเราเท่านั้น
   const isApiRequest = req.url.startsWith(environment.apiUrl);
 
-  if (currentUser?.token && isApiRequest) {
+  if (!isApiRequest) {
+    return next(req);
+  }
+
+  req = req.clone({ withCredentials: true });
+
+  if (currentUser?.token) {
     req = req.clone({
       setHeaders: {
         Authorization: `Bearer ${currentUser.token}`,

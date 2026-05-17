@@ -19,4 +19,7 @@ public class AppUser
 
     // Navigation property
     public Member Member { get; set; } = null!;
+
+    // Navigation property
+    public List<RefreshToken> RefreshTokens { get; set; } = [];
 }

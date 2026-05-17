@@ -1,8 +1,11 @@
 using API.Entities;
+using API.DTOs;
 
 namespace API.Interfaces;
 
 public interface ITokenService
 {
-    string CreateToken(AppUser user);
+    TokenResultDto CreateToken(AppUser user);
+    string GenerateRefreshToken();
+    string HashRefreshToken(string refreshToken);
 }

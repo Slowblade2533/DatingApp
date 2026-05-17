@@ -5,6 +5,9 @@ namespace API.Interfaces;
 
 public interface IAccountService
 {
-    Task<ActionResult<UserDto>> RegisterAsync(RegisterDto registerDto, CancellationToken ct = default);
-    Task<ActionResult<UserDto>> LoginAsync(LoginDto loginDto, CancellationToken ct = default);
+    Task<ActionResult<AuthResultDto>> RegisterAsync(RegisterDto registerDto, CancellationToken ct = default);
+    Task<ActionResult<AuthResultDto>> LoginAsync(LoginDto loginDto, CancellationToken ct = default);
+    Task<ActionResult<AuthResultDto>> RefreshAsync(string refreshToken, CancellationToken ct = default);
+    Task<ActionResult<UserDto>> GetCurrentUserAsync(string userId, CancellationToken ct = default);
+    Task<ActionResult> LogoutAsync(string refreshToken, CancellationToken ct = default);
 }

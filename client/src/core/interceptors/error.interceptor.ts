@@ -37,16 +37,16 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
             {
               const isLoginRequest =
                 req.url.includes('account/login') || req.url.includes('account/register');
+              const isSessionEndpoint =
+                req.url.includes('account/me') ||
+                req.url.includes('account/refresh') ||
+                req.url.includes('account/logout');
 
               if (isLoginRequest) {
                 toast.error('Email or Password incorrect.');
-              } else {
-                // ✅ เช็คก่อนว่ายังมี User ค้างใน Signal ไหม เพื่อป้องกัน Toast ซ้ำซ้อน
-                if (accountService.currentUser()) {
-                  toast.error('Session expired, Please login again.');
-                  accountService.logout();
-                  router.navigate(['/']);
-                }
+              } else if (!isSessionEndpoint && accountService.currentUser()) {
+                // Cookie-first flow: ask SharedWorker to refresh silently before forcing logout.
+                accountService.requestTokenRefresh();
               }
             }
             break;

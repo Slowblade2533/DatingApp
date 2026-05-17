@@ -5,15 +5,24 @@ using API.Helpers;
 using API.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.Extensions.Options;
 
 namespace API.Controllers;
 
 [Authorize]
 public class MembersController(
     IMemberRepository memberRepository,
-    IPhotoService photoService) : BaseApiController
+    IPhotoService photoService,
+    IOptions<UploadSettings> uploadSettings) : BaseApiController
 {
+    private readonly UploadSettings _uploadSettings = uploadSettings.Value;
+    private readonly HashSet<string> _allowedPhotoMimeTypes = uploadSettings.Value.AllowedPhotoMimeTypes
+        .Where(m => !string.IsNullOrWhiteSpace(m))
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
     [HttpGet]
+    [OutputCache(PolicyName = "Members")]
     public async Task<ActionResult<IReadOnlyList<MemberDto>>> GetMembers(
         [FromQuery] PaginationParams paginationParams,
         CancellationToken ct = default)
@@ -68,8 +77,17 @@ public class MembersController(
     }
 
     [HttpPost("add-photo")]
-    public async Task<ActionResult<Photo>> AddPhoto([FromForm] IFormFile file, CancellationToken ct = default)
+    public async Task<ActionResult<Photo>> AddPhoto([FromForm] IFormFile? file, CancellationToken ct = default)
     {
+        if (file is null || file.Length == 0)
+            return BadRequest("Photo file is required.");
+
+        if (file.Length > _uploadSettings.MaxPhotoBytes)
+            return BadRequest($"Photo exceeds size limit of {_uploadSettings.MaxPhotoBytes / (1024 * 1024)} MB.");
+
+        if (_allowedPhotoMimeTypes.Count > 0 && !_allowedPhotoMimeTypes.Contains(file.ContentType))
+            return BadRequest("Unsupported image type.");
+
         var member = await memberRepository.GetMemberForUpdateAsync(User.GetMemberId(), ct);
 
         if (member == null)
