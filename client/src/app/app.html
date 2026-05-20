@@ -1,12 +1,11 @@
-@if (networkService.isOffline()) {
-  <app-offline-banner></app-offline-banner>
-}
+<div class="flex flex-col h-screen">
+  @if (networkService.isOffline()) {
+    <app-offline-banner></app-offline-banner>
+  }
+  <app-nav></app-nav>
 
-<app-nav></app-nav>
-
-@let isSubPage = router.url !== '/';
-<div [class.mt-24]="isSubPage" [class.container]="isSubPage" [class.mx-auto]="isSubPage">
-  <router-outlet></router-outlet>
+  <div class="px-8 py-6 mx-auto">
+    <router-outlet></router-outlet>
+    <app-toast-container></app-toast-container>
+  </div>
 </div>
-
-<app-toast-container></app-toast-container>

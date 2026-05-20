@@ -1,5 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, inject, model, OnInit, signal } from '@angular/core';
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  DOCUMENT,
+  inject,
+  model,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
@@ -7,49 +16,57 @@ import { finalize } from 'rxjs';
 import { AccountService } from '../../core/services/account.service';
 import { BusyService } from '../../core/services/busy.service';
 import { ToastService } from '../../core/services/toast.service';
-import { themes } from '../theme';
 import { environment } from '../../environments/environment';
+import { themes } from '../theme';
 
 @Component({
   selector: 'app-nav',
   imports: [FormsModule, RouterLink, RouterLinkActive],
   templateUrl: './nav.html',
   styleUrl: './nav.css',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class Nav implements OnInit {
+export class Nav {
   private accountService = inject(AccountService);
   protected busyService = inject(BusyService);
   private router = inject(Router);
   private toast = inject(ToastService);
-  protected selectedTheme = signal<string>(localStorage.getItem('theme') || 'light');
+  private destroyRef = inject(DestroyRef);
+  private document = inject(DOCUMENT);
+
+  protected selectedTheme = signal<string>('light');
   protected themes = themes;
   protected showDebugRoutes = !environment.production;
 
-  ngOnInit(): void {
-    document.documentElement.setAttribute('data-theme', this.selectedTheme());
+  protected email = model('');
+  protected password = model('');
+  protected isLoading = signal(false);
+  protected readonly currentUser = this.accountService.currentUser;
+
+  constructor() {
+    afterNextRender(() => {
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      this.selectedTheme.set(savedTheme);
+      this.applyThemeToDOM(savedTheme);
+    });
   }
 
   handleSelectTheme(theme: string) {
     this.selectedTheme.set(theme);
     localStorage.setItem('theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
-    const element = document.activeElement as HTMLDivElement;
-    if (element) element.blur();
+    this.applyThemeToDOM(theme);
+
+    const activeElement = this.document.activeElement as HTMLElement;
+    if (activeElement) {
+      activeElement.blur();
+    }
   }
 
-  // Inject DestroyRef เพื่อใช้ติดตามอายุขัยของ Component
-  private destroyRef = inject(DestroyRef);
-
-  protected email = model('');
-  protected password = model('');
-
-  // เพิ่ม Signal สำหรับจัดการสถานะ Loading (นำไป bind ใส่ [disabled]="isLoading()" ที่ปุ่ม HTML)
-  protected isLoading = signal(false);
-
-  protected readonly currentUser = this.accountService.currentUser;
+  private applyThemeToDOM(theme: string) {
+    this.document.documentElement.setAttribute('data-theme', theme);
+  }
 
   login() {
-    // ป้องกันการยิง API ซ้ำหากผู้ใช้กดรัวๆ
     if (this.isLoading()) return;
 
     this.isLoading.set(true);
@@ -58,7 +75,6 @@ export class Nav implements OnInit {
     this.accountService
       .login(creds)
       .pipe(
-        // ใช้ takeUntilDestroyed กรณี Component ถูกทำลาย Angular จะทำการ Unsubscribe และ Cancel HTTP Request ไปยัง Backend ให้อัตโนมัติ
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
           this.isLoading.set(false);

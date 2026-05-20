@@ -17,9 +17,10 @@ public class MembersController(
     IOptions<UploadSettings> uploadSettings) : BaseApiController
 {
     private readonly UploadSettings _uploadSettings = uploadSettings.Value;
-    private readonly HashSet<string> _allowedPhotoMimeTypes = uploadSettings.Value.AllowedPhotoMimeTypes
-        .Where(m => !string.IsNullOrWhiteSpace(m))
-        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _allowedPhotoMimeTypes =
+        uploadSettings.Value.AllowedPhotoMimeTypes
+            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     [HttpGet]
     [OutputCache(PolicyName = "Members")]
@@ -35,7 +36,8 @@ public class MembersController(
     }
 
     [HttpGet("{id}")] //api/members/xxx-xxx
-    public async Task<ActionResult<Member>> GetMember(string id, CancellationToken ct = default)
+    public async Task<ActionResult<Member>> GetMember(
+        string id, CancellationToken ct = default)
     {
         var member = await memberRepository.GetMemberByIdAsync(id, ct);
 
@@ -52,11 +54,13 @@ public class MembersController(
     }
 
     [HttpPut]
-    public async Task<ActionResult> UpdateMember(MemberUpdateDto memberUpdateDto, CancellationToken ct = default)
+    public async Task<ActionResult> UpdateMember(
+        MemberUpdateDto memberUpdateDto, CancellationToken ct = default)
     {
         var memberId = User.GetMemberId();
 
-        var member = await memberRepository.GetMemberForUpdateAsync(memberId, ct);
+        var member =
+            await memberRepository.GetMemberForUpdateAsync(memberId, ct);
 
         if (member == null)
             return BadRequest("Could not get member");
@@ -77,13 +81,14 @@ public class MembersController(
     }
 
     [HttpPost("add-photo")]
-    public async Task<ActionResult<Photo>> AddPhoto([FromForm] IFormFile? file, CancellationToken ct = default)
+    public async Task<ActionResult<Photo>> AddPhoto(
+        [FromForm] IFormFile? file, CancellationToken ct = default)
     {
         if (file is null || file.Length == 0)
             return BadRequest("Photo file is required.");
 
         if (file.Length > _uploadSettings.MaxPhotoBytes)
-            return BadRequest($"Photo exceeds size limit of {_uploadSettings.MaxPhotoBytes / (1024 * 1024)} MB.");
+            return BadRequest($"Photo exceeds size limit of { _uploadSettings.MaxPhotoBytes / (1024 * 1024) } MB.");
 
         if (_allowedPhotoMimeTypes.Count > 0 && !_allowedPhotoMimeTypes.Contains(file.ContentType))
             return BadRequest("Unsupported image type.");
@@ -93,7 +98,7 @@ public class MembersController(
         if (member == null)
             return BadRequest("Cannot update member");
 
-        var result = await photoService.UploadPhotoAsync(file);
+        var result = await photoService.UploadPhotoAsync(file, ct);
 
         if (result.Error != null)
             return BadRequest(result.Error.Message);
@@ -120,7 +125,8 @@ public class MembersController(
     }
 
     [HttpPut("set-main-photo/{photoId}")]
-    public async Task<ActionResult> SetMainPhoto(int photoId, CancellationToken ct = default)
+    public async Task<ActionResult> SetMainPhoto(
+        int photoId, CancellationToken ct = default)
     {
         var member = await memberRepository.GetMemberForUpdateAsync(User.GetMemberId(), ct);
 
@@ -143,7 +149,8 @@ public class MembersController(
     }
 
     [HttpDelete("delete-photo/{photoID}")]
-    public async Task<ActionResult> DeletePhoto(int photoId, CancellationToken ct = default)
+    public async Task<ActionResult> DeletePhoto(
+        int photoId, CancellationToken ct = default)
     {
         var member = await memberRepository.GetMemberForUpdateAsync(User.GetMemberId(), ct);
 
@@ -165,7 +172,7 @@ public class MembersController(
 
         member.Photos.Remove(photo);
 
-        if (await memberRepository.SaveAllAsync(ct))
+        if (await memberRepository.SaveAllAsync(ct)) 
             return Ok();
 
         return BadRequest("Problem deleting the photo");

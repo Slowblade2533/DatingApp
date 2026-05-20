@@ -7,23 +7,60 @@
       <app-member-card [member]="member" />
     }
   </div>
-  <div class="join bg-base-200/50 backdrop-blur-md p-1 rounded-lg">
-    <button
-      class="join-item btn btn-sm border-none bg-primary text-primary-content shadow-lg"
-      (click)="onPageChange(pageNumber() - 1)"
-      [disabled]="pageNumber() === 1"
-    >
-      « Prev
-    </button>
-    <span class="join-item btn btn-sm border-none bg-primary text-primary-content shadow-lg"
-      >{{ result.pagination.currentPage }} / {{ result.pagination.totalPages }}</span
-    >
-    <button
-      class="join-item btn btn-sm border-none bg-primary text-primary-content shadow-lg"
-      (click)="onPageChange(pageNumber() + 1)"
-      [disabled]="pageNumber() === result.pagination.totalPages"
-    >
-      Next »
-    </button>
+
+  <div class="flex justify-center w-full my-4">
+    <div class="join bg-base-200/50 p-1 rounded-lg shadow-xl">
+      <button
+        class="join-item btn btn-md border-none bg-primary text-primary-content shadow-lg disabled:text-gray-500"
+        (click)="onPageChange(pageNumber() - 1)"
+        [disabled]="pageNumber() === 1"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="size-6"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
+          />
+        </svg>
+        Prev
+      </button>
+
+      <div
+        class="join-item border-none bg-primary text-primary-content shadow-lg flex items-center justify-center gap-1 px-4"
+      >
+        <span class="text-2xl font-bold leading-none">{{ result.pagination.currentPage }}</span>
+        <span class="text-base font-normal text-primary-content/70 leading-none">/</span>
+        <span class="text-lg font-semibold leading-none">{{ result.pagination.totalPages }}</span>
+      </div>
+
+      <button
+        class="join-item btn btn-md border-none bg-primary text-primary-content shadow-lg disabled:text-gray-500"
+        (click)="onPageChange(pageNumber() + 1)"
+        [disabled]="pageNumber() === result.pagination.totalPages"
+      >
+        Next
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="size-6"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
+          />
+        </svg>
+      </button>
+    </div>
   </div>
 }

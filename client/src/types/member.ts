@@ -1,3 +1,10 @@
+export interface EditableMember {
+  displayName: string;
+  description?: string;
+  city: string;
+  country: string;
+}
+
 export interface Member {
   id: string;
   dateOfBirth: string;
@@ -16,11 +23,4 @@ export interface Photo {
   url: string;
   publicId?: string;
   memberId: string;
-}
-
-export interface EditableMember {
-  displayName: string;
-  description?: string;
-  city: string;
-  country: string;
 }

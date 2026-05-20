@@ -1,0 +1,40 @@
+<label class="floating-label text-left">
+  <span>{{ label() }}</span>
+  <input
+    class="input w-full"
+    [type]="type()"
+    [class.input-error]="control.invalid && control.touched"
+    [class.input-success]="control.valid && control.touched"
+    [formControl]="control"
+    [placeholder]="label()"
+    [max]="maxDate()"
+    (keydown)="preventManualInput($event)"
+    (paste)="preventManualInput($event)"
+  />
+  @if (control.touched || control.dirty) {
+    @if (control.hasError('required')) {
+      <div class="validation-hint text-error text-xs mt-1">* {{ label() }} is required</div>
+    }
+    @if (control.hasError('email')) {
+      <div class="validation-hint text-error text-xs mt-1">* Invalid {{ label() }} address</div>
+    }
+    @if (control.hasError('minlength')) {
+      <div class="validation-hint text-error text-xs mt-1">
+        * {{ label() }} must be at least {{ control.errors?.['minlength'].requiredLength }}
+      </div>
+    }
+    @if (control.hasError('maxlength')) {
+      <div class="validation-hint text-error text-xs mt-1">
+        * {{ label() }} not more than {{ control.errors?.['maxlength'].requiredLength }}
+      </div>
+    }
+    @if (control.hasError('passwordMismatch')) {
+      <div class="validation-hint text-error text-xs mt-1">* {{ label() }} do not match</div>
+    }
+    @if (control.hasError('minAge')) {
+      <div class="validation-hint text-error text-xs mt-1">
+        * You must be at least {{ control.errors?.['minAge'].requiredAge }} years old.
+      </div>
+    }
+  }
+</label>

@@ -1,51 +1,116 @@
-<div class="card bg-base-100 w-1/2 mx-auto flex flex-col p-6 rounded-lg shadow-lg">
-  <div class="card-title justify-center text-3xl text-primary">Sign up</div>
-  <div class="card-body w-full">
-    <form #registerForm="ngForm" class="flex flex-col gap-4 w-full" (ngSubmit)="register()">
-      <input
-        type="email"
-        class="input w-full"
-        name="email"
-        [(ngModel)]="creds.email"
-        placeholder="Email"
-        autocomplete="email"
-        required
-        email
-      />
-      <input
-        type="text"
-        class="input w-full"
-        name="displayName"
-        [(ngModel)]="creds.displayName"
-        placeholder="Display Name"
-        autocomplete="name"
-        required
-      />
-      <input
-        type="password"
-        class="input w-full"
-        name="password"
-        [(ngModel)]="creds.password"
-        placeholder="Password"
-        autocomplete="password"
-        required
-        minlength="8"
-      />
+<div class="card bg-base-100 w-100 max-w-xl mx-auto shadow-lg">
+  <div class="card-body">
+    <h2 class="card-title justify-center text-3xl text-primary mb-4">Sign up</h2>
 
-      <div class="flex items-center justify-end gap-3">
-        <button (click)="cancel()" type="button" class="btn">Cancel</button>
-        <button
-          class="btn btn-primary"
-          type="submit"
-          [disabled]="registerForm.invalid || isLoading()"
-        >
-          @if (isLoading()) {
-            <span class="loading loading-spinner loading-xs"></span>
-          } @else {
-            Register
+    <ul class="steps w-full mb-4">
+      <li class="step step-primary">Credentials</li>
+      <li class="step" [class.step-primary]="currentStep() === 2">Profile</li>
+    </ul>
+
+    <!-- 1. Register Form  -->
+    @if (currentStep() === 1) {
+      <form [formGroup]="credentialsForm" class="flex flex-col gap-4">
+        <!-- Email -->
+        <app-text-input type="email" label="Email" formControlName="email"></app-text-input>
+
+        <!-- Display Name -->
+        <app-text-input
+          type="text"
+          label="Display name"
+          formControlName="displayName"
+        ></app-text-input>
+
+        <!-- Password -->
+        <app-text-input
+          type="password"
+          label="Password"
+          formControlName="password"
+        ></app-text-input>
+
+        <!-- Confirm Password  -->
+        <app-text-input
+          type="password"
+          label="Confirm password"
+          formControlName="confirmPassword"
+        ></app-text-input>
+
+        <!-- Next Button -->
+        <div class="flex items-center justify-end gap-3 mt-4">
+          <button (click)="cancel()" type="button" class="btn">Cancel</button>
+          <button
+            class="btn btn-primary"
+            type="button"
+            [disabled]="credentialsForm.invalid"
+            (click)="nextStep()"
+          >
+            Next
+          </button>
+        </div>
+      </form>
+    }
+
+    <!-- 2. Profile Form  -->
+    @if (currentStep() === 2) {
+      <form [formGroup]="profileForm" class="flex flex-col gap-4">
+        <!-- Gender radio button  -->
+        <div class="flex items-center gap-4 mt-1">
+          <div class="font-semibold">Gender:</div>
+          <label class="flex gap-3 items-center cursor-pointer">
+            <span>Male</span>
+            <input type="radio" formControlName="gender" value="male" class="radio radio-primary" />
+          </label>
+          <label class="flex gap-3 items-center cursor-pointer">
+            <span>Female</span>
+            <input
+              type="radio"
+              formControlName="gender"
+              value="female"
+              class="radio radio-primary"
+            />
+          </label>
+        </div>
+
+        <!-- Date of birth datepicker  -->
+        <app-text-input
+          type="date"
+          label="Date of Birth"
+          formControlName="dateOfBirth"
+          [maxDate]="getMaxDate()"
+        ></app-text-input>
+
+        <!-- City input -->
+        <app-text-input type="text" label="City" formControlName="city"></app-text-input>
+
+        <!-- Country input -->
+        <app-text-input type="text" label="Country" formControlName="country"></app-text-input>
+
+        <!-- Register Button -->
+        <div class="flex items-center justify-end gap-3 mt-4">
+          <button (click)="prevStep()" type="button" class="btn">Back</button>
+          <button
+            class="btn btn-primary"
+            type="button"
+            [disabled]="profileForm.invalid || isLoading()"
+            (click)="register()"
+          >
+            @if (isLoading()) {
+              <span class="loading loading-spinner"></span>
+            } @else {
+              Register
+            }
+          </button>
+        </div>
+      </form>
+    }
+
+    @if (validationErrors().length > 0) {
+      <div class="mt-5 flex bg-gray-200 rounded-2xl w-1/2 p3 mx-auto">
+        <ul class="flex flex-col text-error space-y-1">
+          @for (error of validationErrors(); track $index) {
+            <li>{{ error }}</li>
           }
-        </button>
+        </ul>
       </div>
-    </form>
+    }
   </div>
 </div>

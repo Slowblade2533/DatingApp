@@ -1,4 +1,4 @@
-<header class="p-3 w-full fixed top-0 z-50 bg-linear-to-r from-primary to-black">
+<header class="p-3 w-full sticky top-0 z-50 bg-linear-to-r from-primary to-black">
   <div class="flex items-center px-10 mx-auto gap-3">
     <div class="text-white">
       <a
@@ -68,7 +68,7 @@
           tabindex="1"
           class="dropdown-content z-50 menu bg-base-100 rounded-box w-52 p-2 shadow-sm"
         >
-          @for (theme of themes; track $index) {
+          @for (theme of themes; track theme) {
             <li (click)="handleSelectTheme(theme)">
               <a>{{ theme }}</a>
             </li>

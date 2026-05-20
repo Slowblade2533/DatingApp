@@ -9,7 +9,8 @@ const devOnlyRoutes: Routes = environment.production
   : [
       {
         path: 'errors',
-        loadComponent: () => import('../features/test-errors/test-errors').then((m) => m.TestErrors),
+        loadComponent: () =>
+          import('../features/test-errors/test-errors').then((m) => m.TestErrors),
       },
     ];
 

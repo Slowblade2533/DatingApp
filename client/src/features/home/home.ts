@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, inject, signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { Register } from '../account/register/register';
 
 @Component({
@@ -18,9 +18,6 @@ export class Home {
 
     document.startViewTransition(() => {
       this.registerMode.set(value);
-      // ✅ ใน Zoneless, Signal.set() trigger change detection อัตโนมัติ
-      // ถ้า view transition ต้องการ synchronous render:
-      // ใช้ ApplicationRef.tick() แทนเพื่อ trigger global CD
     });
   }
 }

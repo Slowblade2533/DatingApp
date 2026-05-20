@@ -5,8 +5,8 @@ using API.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.Options;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace API.Controllers;
 
@@ -23,6 +23,7 @@ public class AccountController(
     public async Task<ActionResult<UserDto>> Register(RegisterDto registerDto, CancellationToken ct = default)
     {
         var result = await accountService.RegisterAsync(registerDto, ct);
+
         return ApplyCookiesAndReturnUser(result);
     }
 
@@ -32,6 +33,7 @@ public class AccountController(
     public async Task<ActionResult<UserDto>> Login([FromBody] LoginDto loginDto, CancellationToken ct = default)
     {
         var result = await accountService.LoginAsync(loginDto, ct);
+
         return ApplyCookiesAndReturnUser(result);
     }
 
@@ -42,6 +44,7 @@ public class AccountController(
     {
         var refreshToken = Request.Cookies[_cookieSettings.RefreshTokenName];
         var result = await accountService.RefreshAsync(refreshToken ?? string.Empty, ct);
+
         return ApplyCookiesAndReturnUser(result);
     }
 
@@ -56,13 +59,12 @@ public class AccountController(
             return result.Result;
 
         var user = result.Value;
+
         if (user is null)
             return new StatusCodeResult(StatusCodes.Status500InternalServerError);
 
         if (TryGetJwtExpirationUtc(user.Token, out var expiresAt))
-        {
             SetAccessCookie(user.Token, expiresAt);
-        }
 
         return Ok(user);
     }
@@ -73,8 +75,11 @@ public class AccountController(
     public async Task<ActionResult> Logout(CancellationToken ct = default)
     {
         var refreshToken = Request.Cookies[_cookieSettings.RefreshTokenName];
+
         await accountService.LogoutAsync(refreshToken ?? string.Empty, ct);
+
         ClearAuthCookies();
+
         return NoContent();
     }
 
@@ -84,10 +89,12 @@ public class AccountController(
             return result.Result;
 
         var authResult = result.Value;
+
         if (authResult is null)
             return new StatusCodeResult(StatusCodes.Status500InternalServerError);
 
         SetAuthCookies(authResult);
+
         return Ok(authResult.User);
     }
 
@@ -96,6 +103,7 @@ public class AccountController(
         SetAccessCookie(authResult.User.Token, authResult.AccessTokenExpiresAt);
 
         var secure = !env.IsDevelopment() || Request.IsHttps;
+
         Response.Cookies.Append(
             _cookieSettings.RefreshTokenName,
             authResult.RefreshToken,
@@ -131,6 +139,7 @@ public class AccountController(
     private void ClearAuthCookies()
     {
         var secure = !env.IsDevelopment() || Request.IsHttps;
+
         var options = new CookieOptions
         {
             HttpOnly = true,

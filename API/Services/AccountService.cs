@@ -46,7 +46,15 @@ public class AccountService(
         {
             DisplayName = registerDto.DisplayName.Trim(),
             Email = email,
-            PasswordHash = await hasher.HashPasswordAsync(registerDto.Password, ct)
+            PasswordHash = await hasher.HashPasswordAsync(registerDto.Password, ct),
+            Member = new Member
+            {
+                DisplayName = registerDto.DisplayName,
+                Gender = registerDto.Gender,
+                City = registerDto.City,
+                Country = registerDto.Country,
+                DateOfBirth = registerDto.DateOfBirth
+            }
         };
 
         var authResult = CreateAuthResultAndRotateRefreshToken(user);
